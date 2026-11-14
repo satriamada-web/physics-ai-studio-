@@ -4,6 +4,25 @@ Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
 sedangkan perhitungan dijalankan pada server cloud Streamlit.
 
+## Arah pengembangan multiphysics 3D
+
+Fondasi eksperimental solver konduksi panas 3D tersedia pada `physics/heat_transfer_3d.py`.
+Modul ini menggunakan finite difference pada grid Cartesian terstruktur, material homogen
+isotropik dengan properti konstan, sumber panas volumetrik seragam, dan temperatur tetap
+(Dirichlet) pada keenam sisi balok. Urutan array temperatur adalah (z, y, x).
+
+Kemampuan awal:
+- Steady-state 3D menggunakan iterasi Jacobi.
+- Transient 3D menggunakan skema eksplisit dengan pemeriksaan batas stabilitas.
+- Snapshot medan temperatur transient.
+- Fluks panas 3D berdasarkan Hukum Fourier, q = -k∇T.
+- Uji analitik awal pada `physics/verification_3d.py`.
+
+Status: modul solver eksperimental dan belum dihubungkan ke antarmuka Streamlit utama.
+Belum mendukung geometri CAD arbitrer, mesh tetrahedral, konveksi/radiasi, kontak termal,
+atau kopling antar-fisika. Tahap berikutnya adalah verifikasi otomatis, visualisasi 3D,
+kemudian pengembangan sistem geometri dan mesh.
+
 ## Fitur
 - Diagnostik residual persamaan steady-state: residual maksimum absolut dan RMS dari persamaan beda hingga pada node interior.
 - Pengaturan solver steady-state: toleransi konvergensi Jacobi dan batas iterasi maksimum dapat diubah, disimpan dalam preset, serta dicatat pada laporan PDF.
