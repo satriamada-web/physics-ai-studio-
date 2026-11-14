@@ -12,7 +12,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.3 · Kontrol solver, residual persamaan, verifikasi numerik, studi mesh, dan analisis fluks panas")
+st.caption("MVP 1.3 · Riwayat temperatur titik transient, verifikasi numerik, studi mesh, dan analisis fluks panas")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
@@ -224,7 +224,7 @@ with st.sidebar:
     run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True)
 
 with st.expander("✅ Verifikasi numerik otomatis", expanded=False):
-    st.write("Jalankan empat kasus uji dengan solusi analitik yang diketahui. Pengujian ini memeriksa implementasi numerik dasar, bukan validasi eksperimen.")
+    st.write("Jalankan lima kasus uji untuk memeriksa implementasi numerik dasar dan pencatatan probe transient. Pengujian ini memeriksa implementasi numerik dasar, bukan validasi eksperimen.")
     if st.button("Jalankan semua uji verifikasi", key="run_verification"):
         try:
             st.session_state["verification_results"] = run_verification_suite()
