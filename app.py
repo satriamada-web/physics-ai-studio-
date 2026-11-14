@@ -1046,10 +1046,7 @@ with st.container(key="bottom_sheet"):
                 with custom_c:
                     st.number_input("Rasio Poisson ν", min_value=0.0, max_value=0.499, value=float(st.session_state.get("custom_nu", 0.30)), format="%.3f", key="custom_nu")
             else:
-                st.caption(
-                    f"E = {material_info['E']:.3e} Pa · μ = {material_info['mu']:.3e} Pa·s · "
-                    f"ν = {material_info['nu']:.3f} · α = {material_info['alpha']:.3e} 1/K"
-                )
+                st.caption(f"{('E = ' + format(material_info['E'], '.3e') + ' Pa') if material_info.get('E') is not None else ('K bulk = ' + format(material_info.get('K_bulk', 0), '.3e') + ' Pa')} · μ = {material_info['mu']:.3e} Pa·s · {('ν = ' + format(material_info['nu'], '.3f')) if material_info.get('nu') is not None else 'ν = tidak berlaku'} · α = {material_info['alpha']:.3e} 1/K")
             st.caption("E, μ, ν, dan α disimpan sebagai properti referensi material. Solver panas saat ini menggunakan k, ρ, dan cp.");
 
         with boundary_tab:
