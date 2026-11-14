@@ -246,7 +246,7 @@ def build_heat_transfer_pdf(data):
     ])
 
     if data.get("residual") is not None:
-        story.insert(-1, Paragraph("10. Steady-State Equation Residual", styles["Section"]))
+        story.insert(-1, Paragraph("Additional Diagnostic: Steady-State Equation Residual", styles["Section"]))
         story.insert(-1, add_table([
             ["Diagnostic", "Result"],
             ["Maximum absolute residual", f"{data['residual']['residual_max_abs']:.5e} K/m²"],
