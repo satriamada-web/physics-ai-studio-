@@ -1071,60 +1071,45 @@ if run:
     st.session_state.pop("mesh_study_result", None)
     boundary = {"left": float(t_left), "right": float(t_right), "top": float(t_top), "bottom": float(t_bottom)}
     try:
-        residual = None
-        transient_diagnostics = None
-        progress2 = st.progress(0, text="Menyiapkan solver 2D…")
-        progress2_note = st.empty()
-        def update_progress_2d(current, total, metric):
-            pct = min(100, int(100 * current / max(1, total)))
-            progress2.progress(pct, text=f"Solver 2D · {pct}%")
-            if mode == "Steady-state":
-                progress2_note.caption(f"Iterasi {current:,}/{total:,} · ΔT maks {metric:.3e} °C · target {solver_tolerance:.1e} °C")
-            else:
-                progress2_note.caption(f"Langkah waktu {current:,}/{total:,}")
-        if mode == "Steady-state":
-            result = solve_steady_state(
-                nx, ny, lx, ly, k, q_vol, boundary, t_initial,
-                tolerance=solver_tolerance, max_iterations=solver_max_iterations,
-                progress_callback=update_progress_2d,
-            )
-            progress2.progress(100, text="Solver selesai")
-            residual = calculate_steady_residual(result["temperature"], k, lx, ly, q_vol)
-            info = f"Steady-state · {result['iterations']:,} iterasi · konvergen: {'Ya' if result['converged'] else 'Belum'}"
-            extra = f"Perubahan maksimum iterasi terakhir: {result['last_delta']:.3e} °C"
-        else:
-            dt_limit = 0.9 * stable_time_step(k, rho, cp, lx/(nx-1), ly/(ny-1))
-            steps_required = int(np.ceil(total_time / dt_limit))
-            if steps_required > 20000:
-                st.error(f"Simulasi membutuhkan {steps_required:,} langkah (batas MVP 20.000). Kurangi waktu simulasi atau jumlah grid.")
-                st.stop()
-            result = solve_transient(
-                nx, ny, lx, ly, k, rho, cp, q_vol, boundary, t_initial,
-                total_time, dt_limit, probe_x=probe_x_index, probe_y=probe_y_index,
-                progress_callback=update_progress_2d,
-            )
-            progress2.progress(100, text="Integrasi waktu selesai")
-            progress2_note.caption(f"{result['steps']:,} langkah selesai · t akhir {result['simulated_time']:.5g} s")
-            transient_diagnostics = calculate_transient_diagnostics(k, rho, cp, lx, ly, nx, ny, result["dt"])
-            info = f"Transient · {result['steps']:,} langkah · waktu akhir: {result['simulated_time']:.6g} s"
-            extra = f"dt aktual = {result['dt']:.3e} s · batas stabilitas = {transient_diagnostics['dt_stability_limit']:.3e} s · rasio stabilitas = {transient_diagnostics['stability_ratio']:.3f}"
-        st.session_state["last_result"] = {
-            "T": result["temperature"], "x": np.linspace(0, lx, nx), "y": np.linspace(0, ly, ny),
-            "snapshots": result.get("snapshots", []), "snapshot_times": result.get("snapshot_times", []),
-            "probe_times": result.get("probe_times", []),
-            "probe_temperatures": result.get("probe_temperatures", []),
-            "probe_x": result.get("probe_x", probe_x_index),
-            "probe_y": result.get("probe_y", probe_y_index),
-            "mode": mode, "info": info, "extra": extra,
-            "p": {"nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol,
-                  "boundary": boundary, "initial": t_initial, "total_time": total_time,
-                  "material_name": material_name, "solver_tolerance": solver_tolerance,
-                   "solver_max_iterations": solver_max_iterations}, "residual": residual,
-            "transient_diagnostics": transient_diagnostics
-        }
-        st.success("Simulasi selesai. Hasil numerik berhasil dihitung.")
-    except Exception as exc:
-        st.error(f"Simulasi gagal: {exc}")
+        st.session_state.pop("last_result", None)
+        st.session_state["heat2d_job_id"] = submit_job(
+            "heat-transfer-2d", _run_2d_job,
+            mode, int(nx), int(ny), float(lx), float(ly), float(k),
+            float(rho), float(cp), float(q_vol), boundary, float(t_initial),
+            None if total_time is None else float(total_time),
+            float(solver_tolerance), int(solver_max_iterations),
+            int(probe_x_index), int(probe_y_index),
+        )
+    except (TypeError, ValueError, ZeroDivisionError) as exc:
+        st.error(f"Input simulasi tidak valid: {exc}")
+
+render_job_monitor("heat2d_job_id", "heat2d_job_payload", "Solver Heat Transfer 2D")
+payload2 = st.session_state.pop("heat2d_job_payload", None)
+if payload2:
+    result = payload2["result"]
+    residual = payload2["residual"]
+    transient_diagnostics = payload2["transient_diagnostics"]
+    if mode == "Steady-state":
+        info = f"Steady-state · {result['iterations']:,} iterasi · konvergen: {'Ya' if result['converged'] else 'Belum'}"
+        extra = f"Perubahan maksimum iterasi terakhir: {result['last_delta']:.3e} °C"
+    else:
+        info = f"Transient · {result['steps']:,} langkah · waktu akhir: {result['simulated_time']:.6g} s"
+        extra = f"dt aktual = {result['dt']:.3e} s · batas stabilitas = {transient_diagnostics['dt_stability_limit']:.3e} s · rasio stabilitas = {transient_diagnostics['stability_ratio']:.3f}"
+    st.session_state["last_result"] = {
+        "T": result["temperature"], "x": np.linspace(0, lx, nx), "y": np.linspace(0, ly, ny),
+        "snapshots": result.get("snapshots", []), "snapshot_times": result.get("snapshot_times", []),
+        "probe_times": result.get("probe_times", []),
+        "probe_temperatures": result.get("probe_temperatures", []),
+        "probe_x": result.get("probe_x", probe_x_index),
+        "probe_y": result.get("probe_y", probe_y_index),
+        "mode": mode, "info": info, "extra": extra,
+        "p": {"nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol,
+              "boundary": boundary, "initial": t_initial, "total_time": total_time,
+              "material_name": material_name, "solver_tolerance": solver_tolerance,
+              "solver_max_iterations": solver_max_iterations},
+        "residual": residual, "transient_diagnostics": transient_diagnostics,
+    }
+    st.success("Simulasi selesai. Hasil numerik berhasil dihitung.")
 
 data = st.session_state.get("last_result")
 if data is None:
