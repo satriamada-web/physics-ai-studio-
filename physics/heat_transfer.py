@@ -101,7 +101,7 @@ def calculate_transient_diagnostics(conductivity, density, specific_heat, lx, ly
 
 def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
                     heat_generation, boundary, initial_temperature, total_time, dt,
-                    snapshot_count=9, probe_x=None, probe_y=None, progress_callback=None):
+                    snapshot_count=9, probe_x=None, probe_y=None, progress_callback=None, cancel_event=None):
     """Solver eksplisit 2D dengan langkah waktu yang disesuaikan agar t akhir tepat.
 
     dt yang diterima diperlakukan sebagai batas maksimum langkah waktu.
