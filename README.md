@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 1.6
+# Physics AI Studio — MVP 1.9
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -235,3 +235,26 @@ dalam W/m². Untuk menjaga performa browser, visualisasi memakai sampel hingga s
 7 titik per arah (dengan batas domain tetap disertakan); perhitungan dan ekspor CSV tetap
 menggunakan seluruh node grid. Jika fluks pada sampel mendekati nol, panel menampilkan
 pesan bahwa tidak ada vektor yang perlu digambar.
+
+
+## Analisis energi & neraca energi 3D — MVP 1.9
+
+Modul `physics/energy_analysis_3d.py` menambahkan estimasi post-processing untuk
+neraca energi pada domain balok Cartesian:
+- Volume domain dan daya pembangkitan panas volumetrik.
+- Perubahan energi internal transient, dihitung dari integral berbobot
+  `rho × cp × (T_akhir − T_awal)` pada control volume node-centred.
+- Estimasi daya panas keluar pada enam permukaan dari fluks Fourier normal,
+  kemudian diintegrasikan dengan bobot trapesium pada bidang.
+- Untuk transient, energi keluar batas diintegrasikan terhadap waktu dengan
+  aturan trapesium dari snapshot yang tersimpan.
+- Residu neraca steady-state (daya sumber dikurangi daya keluar) atau transient
+  (perubahan energi internal dikurangi energi sumber bersih) serta error relatif.
+
+Batasan penting: ini adalah estimasi numerik berbasis gradien batas dan integrasi
+berbobot, bukan formulasi finite-volume konservatif. Solver masih menggunakan
+finite difference Jacobi/eksplisit. Snapshot transient membatasi resolusi integrasi
+waktu; karena itu residu energi merupakan indikator diagnostik, bukan bukti
+konservasi lokal, validasi eksperimen, atau jaminan akurasi. Analisis transient
+menggunakan rentang penuh dari snapshot awal hingga akhir simulasi, terlepas dari
+snapshot yang sedang dipilih untuk visualisasi.
