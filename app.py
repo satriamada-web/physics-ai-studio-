@@ -57,7 +57,7 @@ def _run_2d_job(mode, nx, ny, lx, ly, k, rho, cp, q_vol, boundary,
             progress_callback=progress_callback, cancel_event=cancel_event,
         )
         residual = calculate_steady_residual(result["temperature"], k, lx, ly, q_vol)
-        return {"result": result, "residual": residual, "transient_diagnostics": None}
+        return {"result": result, "residual": residual, "transient_diagnostics": None, "params": {"mode": mode, "nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol, "boundary": dict(boundary), "initial": initial, "total_time": total_time, "material_name": material_name, "solver_tolerance": tolerance, "solver_max_iterations": max_iterations}}
     dt_limit = 0.9 * stable_time_step(k, rho, cp, lx/(nx-1), ly/(ny-1))
     result = solve_transient(
         nx, ny, lx, ly, k, rho, cp, q_vol, boundary, initial,
@@ -65,7 +65,7 @@ def _run_2d_job(mode, nx, ny, lx, ly, k, rho, cp, q_vol, boundary,
         progress_callback=progress_callback, cancel_event=cancel_event,
     )
     diagnostics = calculate_transient_diagnostics(k, rho, cp, lx, ly, nx, ny, result["dt"])
-    return {"result": result, "residual": None, "transient_diagnostics": diagnostics}
+    return {"result": result, "residual": None, "transient_diagnostics": diagnostics, "params": {"mode": mode, "nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol, "boundary": dict(boundary), "initial": initial, "total_time": total_time, "material_name": material_name, "solver_tolerance": tolerance, "solver_max_iterations": max_iterations}}
 
 
 def _run_3d_job(solver_function, solver_args, solver_kwargs, mode,
@@ -1086,6 +1086,13 @@ if run:
 render_job_monitor("heat2d_job_id", "heat2d_job_payload", "Solver Heat Transfer 2D")
 payload2 = st.session_state.pop("heat2d_job_payload", None)
 if payload2:
+    submitted2 = payload2["params"]
+    mode = submitted2["mode"]
+    nx, ny, lx, ly = submitted2["nx"], submitted2["ny"], submitted2["lx"], submitted2["ly"]
+    k, rho, cp, q_vol = submitted2["k"], submitted2["rho"], submitted2["cp"], submitted2["q"]
+    boundary, t_initial, total_time = submitted2["boundary"], submitted2["initial"], submitted2["total_time"]
+    material_name = submitted2["material_name"]
+    solver_tolerance, solver_max_iterations = submitted2["solver_tolerance"], submitted2["solver_max_iterations"]
     result = payload2["result"]
     residual = payload2["residual"]
     transient_diagnostics = payload2["transient_diagnostics"]
