@@ -5,14 +5,16 @@ Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di Git
 sedangkan perhitungan dijalankan pada server cloud Streamlit.
 
 ## Fitur
-- Panel verifikasi numerik otomatis dengan tiga kasus analitik: steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.\n- Konduksi panas 2D pada pelat persegi panjang.
+- Panel verifikasi numerik otomatis dengan tiga kasus analitik: steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.
+- Konduksi panas 2D pada pelat persegi panjang.
 - Steady-state dengan iterasi Jacobi.
 - Transient dengan skema beda hingga eksplisit.
 - Database material representatif: baja karbon AISI 1018, aluminium 6061-T6, tembaga OFE C10100, dan stainless steel 304; pilihan Custom tetap tersedia.
 - Pemilihan material otomatis mengisi konduktivitas termal, massa jenis, dan kalor jenis; nilai tetap dapat disunting manual.
 - Pengaturan geometri, grid, temperatur awal, kondisi batas, dan sumber panas.
 - Peta temperatur 2D dan grafik profil suhu.
-- Studi independensi mesh steady-state pada grid 21×21, 31×31, 41×41, dan 51×51; membandingkan temperatur pusat serta fluks maksimum terhadap grid referensi 51×51.\n- Analisis fluks panas berdasarkan Hukum Fourier (q = −k∇T), dengan peta magnitudo dan panah arah aliran.
+- Studi independensi mesh steady-state pada grid 21×21, 31×31, 41×41, dan 51×51; membandingkan temperatur pusat serta fluks maksimum terhadap grid referensi 51×51.
+- Analisis fluks panas berdasarkan Hukum Fourier (q = −k∇T), dengan peta magnitudo dan panah arah aliran.
 - Ringkasan fluks panas maksimum, rata-rata, dan minimum; ekspor data fluks sebagai CSV serta ringkasan pada laporan Markdown/PDF.
 - Kontrol waktu akhir transient agar simulasi berhenti tepat pada durasi target.
 - Hingga 9 snapshot untuk melihat evolusi distribusi temperatur dari awal hingga akhir.
