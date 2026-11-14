@@ -3,14 +3,14 @@ import json
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
-from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step
+from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step, calculate_heat_flux
 from physics.reporting import build_heat_transfer_pdf
 from physics.materials import MATERIALS
 
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 0.6 · Database material dan preset konfigurasi")
+st.caption("MVP 0.7 · Analisis fluks panas dan database material")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
@@ -251,6 +251,7 @@ if data is None:
     st.markdown("**Asumsi MVP:** konduksi 2D, material homogen dan isotropik, tanpa konveksi/radiasi, serta temperatur sisi pelat tetap.")
 else:
     T, x, y = data["T"], data["x"], data["y"]
+    qx, qy, qmag = calculate_heat_flux(T, data["p"]["k"], data["p"]["lx"], data["p"]["ly"])
     st.divider()
     st.subheader("Hasil simulasi")
     st.caption(data["info"])
@@ -271,6 +272,44 @@ else:
         line.update_layout(title=f"Profil suhu pada y = {y[mid]:.4f} m", xaxis_title="Posisi X (m)", yaxis_title="Temperatur (°C)", height=350)
         st.plotly_chart(line, use_container_width=True)
         st.caption("Profil temperatur sepanjang garis tengah pelat.")
+
+    st.subheader("Analisis fluks panas")
+    st.caption("Fluks panas dihitung dari Hukum Fourier, q = −k∇T. Panah menunjukkan arah aliran energi panas; warna menunjukkan besar fluks.")
+    q1, q2, q3 = st.columns(3)
+    q1.metric("Fluks maksimum", f"{float(qmag.max()):.3g} W/m²")
+    q2.metric("Fluks rata-rata", f"{float(qmag.mean()):.3g} W/m²")
+    q3.metric("Fluks minimum", f"{float(qmag.min()):.3g} W/m²")
+    heat_flux_fig = go.Figure(go.Heatmap(
+        z=qmag, x=x, y=y, colorscale="Viridis",
+        colorbar={"title": "W/m²"},
+        hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>|q|=%{z:.3g} W/m²<extra></extra>",
+    ))
+    arrow_annotations = []
+    arrow_stride = max(1, min(len(x), len(y)) // 12)
+    arrow_length = 0.34 * min(data["p"]["lx"]/(len(x)-1), data["p"]["ly"]/(len(y)-1))
+    for iy in range(1, len(y)-1, arrow_stride):
+        for ix in range(1, len(x)-1, arrow_stride):
+            magnitude = float(qmag[iy, ix])
+            if magnitude <= 1e-14:
+                continue
+            ux = float(qx[iy, ix] / magnitude)
+            uy = float(qy[iy, ix] / magnitude)
+            arrow_annotations.append({
+                "x": float(x[ix] + ux * arrow_length / 2),
+                "y": float(y[iy] + uy * arrow_length / 2),
+                "ax": float(x[ix] - ux * arrow_length / 2),
+                "ay": float(y[iy] - uy * arrow_length / 2),
+                "xref": "x", "yref": "y", "axref": "x", "ayref": "y",
+                "showarrow": True, "arrowhead": 2, "arrowsize": 1,
+                "arrowwidth": 1.2, "arrowcolor": "white",
+            })
+    heat_flux_fig.update_layout(
+        title="Peta besar dan arah fluks panas",
+        xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)",
+        height=520, annotations=arrow_annotations,
+    )
+    st.plotly_chart(heat_flux_fig, use_container_width=True)
+    st.caption("Komponen fluks: qx = −k·∂T/∂x dan qy = −k·∂T/∂y. Estimasi gradien memakai beda hingga numerik.")
 
     if data["mode"] == "Transient" and data.get("snapshots"):
         st.subheader("Evolusi temperatur terhadap waktu")
@@ -356,4 +395,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 0.6 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 0.7 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
