@@ -28,7 +28,7 @@ def _boundary(T, b):
 
 
 def solve_steady_state(nx, ny, lx, ly, conductivity, heat_generation, boundary,
-                       initial_temperature=25.0, tolerance=1e-6, max_iterations=30000):
+                       initial_temperature=25.0, tolerance=1e-6, max_iterations=30000, progress_callback=None):
     """Persamaan steady-state: Laplacian(T) + q_vol/k = 0; iterasi Jacobi."""
     _validate(nx, ny, lx, ly, conductivity, boundary)
     dx, dy = lx / (nx - 1), ly / (ny - 1)
@@ -48,6 +48,8 @@ def solve_steady_state(nx, ny, lx, ly, conductivity, heat_generation, boundary,
         ) / den
         _boundary(T, boundary)
         last_delta = float(np.max(np.abs(T[1:-1, 1:-1] - old[1:-1, 1:-1])))
+        if progress_callback and (iteration == 1 or iteration % max(1, max_iterations // 100) == 0 or last_delta < tolerance or iteration == max_iterations):
+            progress_callback(iteration, max_iterations, last_delta)
         if last_delta < tolerance:
             converged = True
             break
@@ -92,7 +94,7 @@ def calculate_transient_diagnostics(conductivity, density, specific_heat, lx, ly
 
 def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
                     heat_generation, boundary, initial_temperature, total_time, dt,
-                    snapshot_count=9, probe_x=None, probe_y=None):
+                    snapshot_count=9, probe_x=None, probe_y=None, progress_callback=None):
     """Solver eksplisit 2D dengan langkah waktu yang disesuaikan agar t akhir tepat.
 
     dt yang diterima diperlakukan sebagai batas maksimum langkah waktu.
@@ -149,6 +151,8 @@ def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
         if step in snapshot_lookup:
             snapshots.append(T.copy())
             snapshot_times.append(step * dt_actual)
+        if progress_callback and (step == 1 or step % max(1, steps // 100) == 0 or step == steps):
+            progress_callback(step, steps, None)
 
     return {
         "temperature": T,
