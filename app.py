@@ -761,7 +761,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             volume_fig3 = go.Figure(go.Volume(
                 x=xc.ravel(), y=yc.ravel(), z=zc.ravel(), value=viewT3.ravel(),
                 isomin=float(viewT3.min()) - 1e-9, isomax=float(viewT3.max()) + 1e-9,
-                opacity=0.12, surface_count=12, colorscale="Inferno",
+                opacity=0.12, surface_count=12, colorscale=COLORMAP_OPTIONS[st.session_state.get("heat3d_colormap", "Thermal / Inferno")],
                 colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
             ))
             volume_fig3.update_layout(
@@ -769,7 +769,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                 scene={"xaxis_title": "X (m)", "yaxis_title": "Y (m)", "zaxis_title": "Z (m)", "aspectmode": "data"},
                 height=700, margin={"l": 0, "r": 82, "t": 50, "b": 0},
             )
-            st.plotly_chart(volume_fig3, use_container_width=True, key="heat3d_volume")
+            st.plotly_chart(volume_fig3, use_container_width=True, key="heat3d_volume", config=PLOTLY_EXPORT_CONFIG)
 
             st.subheader("Vektor fluks panas 3D")
             st.caption(
@@ -1376,7 +1376,7 @@ else:
         e2.metric("Temperatur minimum", f"{frame_T.min():.2f} °C")
         e3.metric("Temperatur maksimum", f"{frame_T.max():.2f} °C")
         evolution = go.Figure(go.Heatmap(
-            z=frame_T, x=x, y=y, colorscale="Inferno",
+            z=frame_T, x=x, y=y, colorscale=COLORMAP_OPTIONS[st.session_state.get("heat2d_colormap", "Thermal / Inferno")],
             colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
             zmin=float(data["T"].min()), zmax=float(data["T"].max()),
             hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>T=%{z:.2f} °C<extra></extra>",
