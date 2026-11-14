@@ -16,6 +16,7 @@ st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu
 
 DEFAULT_SETTINGS = {
     "mode": "Steady-state", "material_name": "Custom", "nx": 41, "ny": 41,
+    "solver_tolerance": 1e-6, "solver_max_iterations": 30000,
     "lx": 0.10, "ly": 0.10, "k": 45.0, "rho": 7800.0, "cp": 500.0,
     "t_left": 100.0, "t_right": 25.0, "t_top": 25.0, "t_bottom": 25.0,
     "t_initial": 25.0, "q_vol": 0.0, "total_time": 10.0,
@@ -108,11 +109,12 @@ def import_preset():
             "nx": (11, 101), "ny": (11, 101), "lx": (0.01, 2.0), "ly": (0.01, 2.0),
             "k": (0.01, 2000), "rho": (1, 25000), "cp": (1, 10000),
             "q_vol": (0, 1.0e8), "total_time": (0.01, 10000),
+            "solver_tolerance": (1e-10, 1e-2), "solver_max_iterations": (1000, 100000),
         }
         for key, (low, high) in ranges.items():
             if not low <= settings[key] <= high:
                 raise ValueError(f"Nilai {key} di luar rentang.")
-        if not isinstance(settings["nx"], int) or not isinstance(settings["ny"], int):
+        if not isinstance(settings["nx"], int) or not isinstance(settings["ny"], int) or not isinstance(settings["solver_max_iterations"], int):
             raise ValueError("Jumlah grid harus berupa bilangan bulat.")
         if settings["nx"] % 2 == 0 or settings["ny"] % 2 == 0:
             raise ValueError("Jumlah grid harus ganjil.")
@@ -182,6 +184,9 @@ with st.sidebar:
     mode = st.selectbox("Jenis simulasi", ["Steady-state", "Transient"], key="mode", on_change=record_settings_change)
     nx = st.slider("Jumlah grid arah X", 11, 101, step=2, key="nx", on_change=record_settings_change)
     ny = st.slider("Jumlah grid arah Y", 11, 101, step=2, key="ny", on_change=record_settings_change)
+    st.header("Pengaturan solver")
+    solver_tolerance = st.number_input("Toleransi konvergensi", min_value=1e-10, max_value=1e-2, step=1e-7, format="%.1e", key="solver_tolerance", on_change=record_settings_change, help="Batas perubahan maksimum temperatur antar iterasi Jacobi, dalam °C.")
+    solver_max_iterations = st.number_input("Iterasi maksimum", min_value=1000, max_value=100000, step=1000, key="solver_max_iterations", on_change=record_settings_change)
     st.header("2 · Geometri")
     lx = st.number_input("Panjang X (m)", 0.01, 2.0, step=0.01, format="%.3f", key="lx", on_change=record_settings_change)
     ly = st.number_input("Panjang Y (m)", 0.01, 2.0, step=0.01, format="%.3f", key="ly", on_change=record_settings_change)
@@ -212,7 +217,7 @@ with st.sidebar:
     run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True)
 
 with st.expander("✅ Verifikasi numerik otomatis", expanded=False):
-    st.write("Jalankan tiga kasus uji dengan solusi analitik yang diketahui. Pengujian ini memeriksa implementasi numerik dasar, bukan validasi eksperimen.")
+    st.write("Jalankan empat kasus uji dengan solusi analitik yang diketahui. Pengujian ini memeriksa implementasi numerik dasar, bukan validasi eksperimen.")
     if st.button("Jalankan semua uji verifikasi", key="run_verification"):
         try:
             st.session_state["verification_results"] = run_verification_suite()
@@ -243,7 +248,7 @@ if run:
         residual = None
         with st.spinner("Menghitung solusi numerik..."):
             if mode == "Steady-state":
-                result = solve_steady_state(nx, ny, lx, ly, k, q_vol, boundary, t_initial)
+                result = solve_steady_state(nx, ny, lx, ly, k, q_vol, boundary, t_initial, tolerance=solver_tolerance, max_iterations=solver_max_iterations)
                 residual = calculate_steady_residual(result["temperature"], k, lx, ly, q_vol)
                 info = f"Steady-state · {result['iterations']:,} iterasi · konvergen: {'Ya' if result['converged'] else 'Belum'}"
                 extra = f"Perubahan maksimum iterasi terakhir: {result['last_delta']:.3e} °C"
@@ -262,7 +267,8 @@ if run:
             "mode": mode, "info": info, "extra": extra,
             "p": {"nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol,
                   "boundary": boundary, "initial": t_initial, "total_time": total_time,
-                  "material_name": material_name}, "residual": residual
+                  "material_name": material_name, "solver_tolerance": solver_tolerance,
+                   "solver_max_iterations": solver_max_iterations}, "residual": residual
         }
         st.success("Simulasi selesai. Hasil numerik berhasil dihitung.")
     except Exception as exc:
