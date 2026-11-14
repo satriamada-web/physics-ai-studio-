@@ -607,6 +607,102 @@ with st.expander("Buat volume mesh dari geometri impor", expanded=False):
                 mime="text/csv",
             )
 
+
+st.divider()
+st.header("Wind & Heat Transport · MVP 2.0")
+st.caption("Simulasikan perpindahan panas oleh angin pada volume mesh geometri impor. Arah dan kecepatan angin ditentukan pengguna.")
+with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
+    from physics.wind_heat_3d import solve_wind_heat_transport
+
+    flow_mesh = st.session_state.get("volume_mesh_3d_result")
+    if not flow_mesh:
+        st.info("Impor geometri tertutup, lalu buat Volume Mesh terlebih dahulu.")
+    else:
+        st.write(f"Domain aktif: **{flow_mesh['active_cell_count']:,} sel udara** · resolusi {flow_mesh['nx']} × {flow_mesh['ny']} × {flow_mesh['nz']}.")
+        direction_cols = st.columns(3)
+        with direction_cols[0]:
+            wind_speed = st.number_input("Kecepatan angin (m/s)", min_value=0.0, max_value=100.0, value=1.0, step=0.5, key="wind3d_speed")
+        with direction_cols[1]:
+            wind_azimuth = st.number_input("Arah horizontal / azimut (°)", min_value=-180.0, max_value=180.0, value=0.0, step=5.0, key="wind3d_azimuth", help="0° = +X, 90° = +Y, 180° = -X, -90° = -Y.")
+        with direction_cols[2]:
+            wind_elevation = st.number_input("Sudut naik/turun (°)", min_value=-90.0, max_value=90.0, value=0.0, step=5.0, key="wind3d_elevation", help="0° horizontal, positif ke atas (+Z), negatif ke bawah.")
+        thermal_cols = st.columns(4)
+        with thermal_cols[0]:
+            wind_inlet_temp = number_input_with_unit("Suhu udara masuk (°C)", value=35.0, step=1.0, key="wind3d_inlet_temp")
+        with thermal_cols[1]:
+            wind_initial_temp = number_input_with_unit("Suhu awal domain (°C)", value=25.0, step=1.0, key="wind3d_initial_temp")
+        with thermal_cols[2]:
+            wind_duration = number_input_with_unit("Durasi simulasi (s)", min_value=0.01, max_value=3600.0, value=10.0, step=1.0, key="wind3d_duration")
+        with thermal_cols[3]:
+            wind_source = number_input_with_unit("Sumber panas udara (W/m³)", value=0.0, step=1.0, key="wind3d_source")
+        with st.expander("Properti udara", expanded=False):
+            air_cols = st.columns(3)
+            with air_cols[0]:
+                air_rho = number_input_with_unit("Massa jenis udara (kg/m³)", min_value=0.01, max_value=10.0, value=1.2, step=0.05, key="wind3d_rho")
+            with air_cols[1]:
+                air_cp = number_input_with_unit("Kalor jenis udara (J/kg·K)", min_value=1.0, max_value=10000.0, value=1005.0, step=5.0, key="wind3d_cp")
+            with air_cols[2]:
+                air_k = number_input_with_unit("Konduktivitas udara (W/m·K)", min_value=0.0001, max_value=10.0, value=0.026, step=0.001, key="wind3d_k")
+        st.caption("Azimut diukur dari sumbu +X menuju +Y. Angin masuk melalui sisi hulu domain voxel; sisi geometri lainnya diasumsikan adiabatik. Kecepatan angin dipaksakan seragam, bukan dihitung dari Navier–Stokes.")
+        if st.button("▶ Jalankan simulasi aliran panas", key="run_wind_heat_3d", type="primary"):
+            st.session_state["windheat3d_job_id"] = submit_job(
+                "wind-heat-transport-3d", solve_wind_heat_transport,
+                flow_mesh["inside_mask_zyx"], float(flow_mesh["dx"]),
+                float(flow_mesh["dy"]), float(flow_mesh["dz"]),
+                float(wind_speed), float(wind_azimuth), float(wind_elevation),
+                float(wind_inlet_temp), float(wind_initial_temp),
+                float(air_rho), float(air_cp), float(air_k),
+                float(wind_duration), float(wind_source),
+            )
+            st.session_state.pop("wind_heat_3d_result", None)
+        render_job_monitor("windheat3d_job_id", "wind_heat_3d_result", "Simulasi aliran dan perpindahan panas")
+        wind_result = st.session_state.get("wind_heat_3d_result")
+        if wind_result:
+            frames = wind_result["snapshots"]
+            times = wind_result["snapshot_times"]
+            frame_index = st.slider("Waktu hasil (s)", 0, len(frames)-1, len(frames)-1, key="windheat3d_frame")
+            field = np.asarray(frames[frame_index])
+            mask = flow_mesh["inside_mask_zyx"]
+            cell_centers = flow_mesh["cell_centers"]
+            cell_temp = field[mask]
+            stride = max(1, int(np.ceil(len(cell_centers)/14000)))
+            points = cell_centers[::stride]
+            point_temp = cell_temp[::stride]
+            flow_fig = go.Figure(go.Scatter3d(
+                x=points[:,0], y=points[:,1], z=points[:,2], mode="markers",
+                marker={"size":3, "color":point_temp, "colorscale":"Inferno", "colorbar":{"title":"°C"}, "showscale":True},
+                hovertemplate="x=%{x:.3g} m<br>y=%{y:.3g} m<br>z=%{z:.3g} m<br>T=%{marker.color:.2f} °C<extra></extra>",
+            ))
+            centre = np.mean(cell_centers, axis=0)
+            vector = np.asarray(wind_result["velocity_m_s"], dtype=float)
+            norm = np.linalg.norm(vector)
+            if norm > 0:
+                end = centre + vector/norm * (0.35*max(flow_mesh["bounds_max_m"][i]-flow_mesh["bounds_min_m"][i] for i in range(3)))
+                flow_fig.add_trace(go.Scatter3d(
+                    x=[centre[0],end[0]], y=[centre[1],end[1]], z=[centre[2],end[2]],
+                    mode="lines+markers", line={"width":8}, marker={"size":[2,5]},
+                    name="Arah angin",
+                ))
+            flow_fig.update_layout(
+                title=f"Distribusi suhu udara · t = {times[frame_index]:.4g} s",
+                scene={"xaxis_title":"X (m)","yaxis_title":"Y (m)","zaxis_title":"Z (m)","aspectmode":"data"},
+                height=590, margin={"l":0,"r":0,"t":40,"b":0},
+            )
+            st.plotly_chart(flow_fig, use_container_width=True, key="windheat3d_temperature_view")
+            metrics = st.columns(4)
+            metrics[0].metric("Kecepatan", f"{wind_result['wind_speed_m_s']:.3g} m/s")
+            metrics[1].metric("Vektor angin", ", ".join(f"{v:.2f}" for v in wind_result["velocity_m_s"]) + " m/s")
+            metrics[2].metric("Suhu minimum", f"{np.nanmin(field):.2f} °C")
+            metrics[3].metric("Suhu maksimum", f"{np.nanmax(field):.2f} °C")
+            st.caption(f"{wind_result['steps']:,} langkah waktu · dt = {wind_result['dt_actual']:.3g} s · sel inlet = {wind_result['inlet_cell_count']:,}.")
+            st.warning("Model MVP ini menyelesaikan adveksi-difusi suhu dengan medan kecepatan angin yang ditentukan pengguna. Belum menghitung tekanan, kontinuitas momentum Navier–Stokes, turbulensi, buoyancy, slip/no-slip dinding, atau pertukaran panas konjugat dengan rangka/kaca. Bukaan pintu dan jendela belum dapat dipisahkan sebagai boundary independen dari mesh permukaan tertutup.")
+            flow_csv = io.StringIO()
+            flow_csv.write("x_m,y_m,z_m,temperature_C\n")
+            for p, temp in zip(cell_centers, cell_temp):
+                flow_csv.write(f"{p[0]:.9g},{p[1]:.9g},{p[2]:.9g},{temp:.9g}\n")
+            st.download_button("⬇ Unduh medan suhu aliran (CSV)", flow_csv.getvalue().encode("utf-8"), file_name="physics_ai_studio_wind_heat.csv", mime="text/csv")
+
+
 st.divider()
 st.header("Structured 3D Mesh Engine · MVP 1.5")
 st.caption("Bangun grid Cartesian node-centred untuk domain balok. Grid ini memakai konvensi array (z, y, x) yang kompatibel dengan fondasi solver panas 3D.")
