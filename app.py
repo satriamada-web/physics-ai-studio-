@@ -11,6 +11,7 @@ from physics.reporting import build_heat_transfer_pdf
 from physics.materials import MATERIALS
 from physics.verification import run_verification_suite
 from physics.worker import submit_job, get_job, cancel_job
+from physics.project_store import (collect_settings, save_project, list_projects, load_project, rename_project, duplicate_project, delete_project, list_samples, load_sample)
 
 
 # Shared post-processing display settings.
@@ -312,6 +313,85 @@ div[class*="st-key-transient_pill"] [data-testid="stCaptionContainer"] {text-ali
 """, unsafe_allow_html=True)
 
 st.markdown("""<div class="app-topbar"><div><div class="app-name">PHYSICS AI STUDIO</div><div class="app-subtitle">Multiphysics Simulation Environment · MVP 1.9</div></div><div class="app-status">● READY</div></div><div class="app-ribbon">FILE　 MODEL　 GEOMETRY　 MATERIALS　 PHYSICS　 MESH　 STUDY　 RESULTS</div>""", unsafe_allow_html=True)
+
+# Local project library: JSON files on the application host.
+with st.expander("📁 Daftar Proyek / Recent Simulations", expanded=False):
+    project_name_input = st.text_input("Nama proyek", value=st.session_state.get("_project_name_draft", "Simulasi tanpa judul"), key="project_name_field")
+    save_col, refresh_col = st.columns([2, 1])
+    if save_col.button("💾 Simpan proyek", use_container_width=True, key="save_local_project"):
+        try:
+            saved = save_project(project_name_input, collect_settings(st.session_state),
+                                 st.session_state.get("_active_project_id"))
+            st.session_state["_active_project_id"] = saved["id"]
+            st.session_state["_active_project_name"] = saved["name"]
+            st.success(f"Proyek '{saved['name']}' tersimpan.")
+        except Exception as exc:
+            st.error(f"Gagal menyimpan proyek: {exc}")
+    if refresh_col.button("↻ Muat ulang", use_container_width=True, key="refresh_project_list"):
+        st.rerun()
+    projects = list_projects()
+    if projects:
+        project_labels = {f"{p['name']} · {p['updated_at'][:16].replace('T', ' ')}": p["id"] for p in projects}
+        selected_label = st.selectbox("Proyek tersimpan", list(project_labels), key="project_list_selection")
+        selected_id = project_labels[selected_label]
+        rename_value = st.text_input("Nama baru", value=next(p["name"] for p in projects if p["id"] == selected_id), key="project_rename_field")
+        pcols = st.columns(4)
+        if pcols[0].button("Buka", use_container_width=True, key="open_saved_project"):
+            try:
+                project = load_project(selected_id)
+                for key, value in project["settings"].items():
+                    st.session_state[key] = value
+                st.session_state["_active_project_id"] = project["id"]
+                st.session_state["_active_project_name"] = project["name"]
+                st.success("Konfigurasi proyek dimuat.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Gagal membuka proyek: {exc}")
+        if pcols[1].button("Ganti nama", use_container_width=True, key="rename_saved_project"):
+            try:
+                rename_project(selected_id, rename_value)
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Gagal mengganti nama: {exc}")
+        if pcols[2].button("Duplikasi", use_container_width=True, key="duplicate_saved_project"):
+            try:
+                copy = duplicate_project(selected_id)
+                st.session_state["_active_project_id"] = copy["id"]
+                st.success(f"Duplikat '{copy['name']}' dibuat.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Gagal menduplikasi: {exc}")
+        if pcols[3].button("Hapus", use_container_width=True, key="delete_saved_project"):
+            try:
+                delete_project(selected_id)
+                if st.session_state.get("_active_project_id") == selected_id:
+                    st.session_state.pop("_active_project_id", None)
+                    st.session_state.pop("_active_project_name", None)
+                st.warning("Proyek dihapus.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Gagal menghapus: {exc}")
+    else:
+        st.caption("Belum ada proyek tersimpan. Simpan konfigurasi pertama untuk membuat daftar Recent Simulations.")
+    st.divider()
+    st.markdown("**Sample Models / Templates**")
+    samples = list_samples()
+    if samples:
+        sample_labels = {f"{s['name']} — {s.get('description', '')}": s["id"] for s in samples}
+        sample_label = st.selectbox("Pilih model contoh", list(sample_labels), key="sample_model_selection")
+        if st.button("Gunakan template", use_container_width=True, key="load_sample_model"):
+            try:
+                sample = load_sample(sample_labels[sample_label])
+                for key, value in sample["settings"].items():
+                    st.session_state[key] = value
+                st.session_state["_active_project_id"] = None
+                st.session_state["_active_project_name"] = sample["name"]
+                st.success(f"Template '{sample['name']}' diterapkan. Tekan Simpan proyek untuk menyimpannya sebagai proyek pribadi.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Template gagal dimuat: {exc}")
+    st.caption("Penyimpanan JSON berada di folder data/projects pada server aplikasi. Agar tetap ada setelah redeploy/restart, hosting harus memasang persistent volume pada folder tersebut. Ini bukan penyimpanan privat langsung di memori HP.")
+
 with st.container(key="floating_run_button"):
     toolbar_run = st.button("▶ RUN 2D", key="toolbar_run_2d", type="primary")
 st.markdown("""
