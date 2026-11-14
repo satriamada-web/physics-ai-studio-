@@ -13,6 +13,37 @@ from physics.verification import run_verification_suite
 from physics.worker import submit_job, get_job, cancel_job
 
 
+# Shared post-processing display settings.
+COLORMAP_OPTIONS = {
+    "Jet / Rainbow": "Jet",
+    "Viridis": "Viridis",
+    "Thermal / Inferno": "Inferno",
+}
+PLOTLY_EXPORT_CONFIG = {
+    "displaylogo": False,
+    "responsive": True,
+    "toImageButtonOptions": {
+        "format": "png", "filename": "physics_ai_studio_viewport",
+        "height": 1000, "width": 1400, "scale": 2,
+    },
+}
+
+def _selected_heatmap_point(event, x_values, y_values, field):
+    """Return nearest grid-node data from a Plotly heatmap selection."""
+    try:
+        points = event.selection.points
+        if not points:
+            return None
+        point = points[0]
+        px, py = float(point.get("x")), float(point.get("y"))
+        ix = int(np.abs(np.asarray(x_values, dtype=float) - px).argmin())
+        iy = int(np.abs(np.asarray(y_values, dtype=float) - py).argmin())
+        value = float(np.asarray(field)[iy, ix])
+        return {"x": float(x_values[ix]), "y": float(y_values[iy]), "value": value}
+    except (AttributeError, KeyError, TypeError, ValueError, IndexError):
+        return None
+
+
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 
 @st.fragment(run_every="500ms")
@@ -653,9 +684,10 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                 axis_labels3 = ("Y (m)", "Z (m)")
                 slice_title3 = f"Irisan bidang YZ pada X = {active_mesh['x'][slice_index3]:.5g} m"
                 hover3 = "y=%{x:.4g} m<br>z=%{y:.4g} m<br>T=%{z:.3f} °C<extra></extra>"
+            colormap3_label = st.selectbox("Palet warna irisan 3D", list(COLORMAP_OPTIONS.keys()), index=2, key="heat3d_colormap")
             slice_fig3 = go.Figure(go.Heatmap(
                 z=slice_values3, x=slice_x3, y=slice_y3,
-                colorscale="Inferno", colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}, "tickmode": "auto"},
+                colorscale=COLORMAP_OPTIONS[colormap3_label], colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}, "tickmode": "auto"},
                 hovertemplate=hover3,
             ))
             # Color-coded edge overlays for the four faces intersecting the selected 3D slice.
@@ -681,7 +713,21 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                 title=slice_title3, xaxis_title=axis_labels3[0],
                 yaxis_title=axis_labels3[1], height=470,
             )
-            st.plotly_chart(slice_fig3, use_container_width=True, key="heat3d_selected_slice")
+            slice_event3 = st.plotly_chart(
+                slice_fig3, use_container_width=True, key="heat3d_selected_slice",
+                on_select="rerun", selection_mode="points", config=PLOTLY_EXPORT_CONFIG,
+            )
+            selected3 = _selected_heatmap_point(slice_event3, slice_x3, slice_y3, slice_values3)
+            if selected3:
+                st.markdown("**📍 Touch-to-Probe · Irisan 3D**")
+                p3 = st.columns(3)
+                p3[0].metric(axis_labels3[0], f"{selected3['x']:.8g} m")
+                p3[1].metric(axis_labels3[1], f"{selected3['y']:.8g} m")
+                p3[2].metric("Temperatur", f"{selected3['value']:.8g} °C")
+                st.caption(f"Posisi irisan tetap: {slice_title3}. Nilai temperatur berasal dari node grid 3D yang terpilih.")
+            else:
+                st.caption("Sentuh/pilih titik pada irisan 3D untuk membaca koordinat dan temperatur node.")
+
 
             st.subheader("3D Temperature Probe")
             probe_cols3 = st.columns(3)
@@ -1210,8 +1256,9 @@ else:
         r1, r2 = st.columns(2)
         r1.metric("Residual maksimum absolut", f"{data['residual']['residual_max_abs']:.3e} K/m²")
         r2.metric("Residual RMS", f"{data['residual']['residual_rms']:.3e} K/m²")
-    fig = go.Figure(go.Heatmap(z=T, x=x, y=y, colorscale="Inferno", colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
-        hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>T=%{z:.2f} °C<extra></extra>"))
+    colormap_label = st.selectbox("Palet warna kontur", list(COLORMAP_OPTIONS.keys()), index=2, key="heat2d_colormap")
+    fig = go.Figure(go.Heatmap(z=T, x=x, y=y, colorscale=COLORMAP_OPTIONS[colormap_label], colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
+        hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>T=%{z:.6g} °C<extra></extra>"))
     # Overlay boundary-condition indicators: color-coded edges and temperature labels.
     _bc_colors = {"left": "#38C8F2", "right": "#FFB454", "top": "#A78BFA", "bottom": "#62D5A3"}
     _x0, _x1, _y0, _y1 = float(x[0]), float(x[-1]), float(y[0]), float(y[-1])
@@ -1233,7 +1280,20 @@ else:
     if abs(float(q_vol)) > 0:
         fig.add_annotation(x=(_x0+_x1)/2, y=(_y0+_y1)/2, text=f"☀ Heat source<br>{q_vol:.3g} W/m³", showarrow=False, bgcolor="rgba(255,180,84,.88)", font={"color":"#18212B","size":11})
     fig.update_layout(title="Distribusi temperatur 2D · Viewport + indikator boundary", xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)", height=680, margin={"l": 12, "r": 82, "t": 52, "b": 12})
-    st.plotly_chart(fig, use_container_width=True)
+    probe_event = st.plotly_chart(
+        fig, use_container_width=True, key="heat2d_touch_probe",
+        on_select="rerun", selection_mode="points", config=PLOTLY_EXPORT_CONFIG,
+    )
+    selected_probe = _selected_heatmap_point(probe_event, x, y, T)
+    if selected_probe:
+        st.markdown("**📍 Touch-to-Probe · Node terpilih**")
+        probe_cols = st.columns(3)
+        probe_cols[0].metric("Koordinat X", f"{selected_probe['x']:.8g} m")
+        probe_cols[1].metric("Koordinat Y", f"{selected_probe['y']:.8g} m")
+        probe_cols[2].metric("Temperatur", f"{selected_probe['value']:.8g} °C")
+        st.caption("Nilai diambil langsung dari node grid terdekat pada array hasil solver, bukan interpolasi visual.")
+    else:
+        st.caption("Sentuh/pilih satu titik pada kontur untuk membaca koordinat dan temperatur node.")
     with st.expander("Profil temperatur · Detail hasil", expanded=False):
         mid = len(y)//2
         line = go.Figure(go.Scatter(x=x, y=T[mid, :], mode="lines+markers", name="Profil temperatur"))
@@ -1328,9 +1388,16 @@ else:
         st.plotly_chart(evolution, use_container_width=True)
 
     csv = io.StringIO()
-    csv.write("y_m," + ",".join([f"x={v:.6g}_m" for v in x]) + "\n")
-    for yi, row in zip(y, T):
-        csv.write(f"{yi:.8g}," + ",".join(f"{v:.8g}" for v in row) + "\n")
+    csv.write("x_m,y_m,temperature_C\\n")
+    for _j, _yy in enumerate(y):
+        for _i, _xx in enumerate(x):
+            csv.write(f"{float(_xx):.10g},{float(_yy):.10g},{float(T[_j, _i]):.10g}\\n")
+    st.download_button(
+        "⬇ Ekspor seluruh data temperatur 2D (CSV)",
+        csv.getvalue().encode("utf-8-sig"),
+        file_name="physics_ai_studio_temperature_2d.csv",
+        mime="text/csv", key="download_heat2d_csv",
+    )
 
     p = data["p"]
 
