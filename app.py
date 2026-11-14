@@ -1388,10 +1388,10 @@ else:
         st.plotly_chart(evolution, use_container_width=True)
 
     csv = io.StringIO()
-    csv.write("x_m,y_m,temperature_C\\n")
+    csv.write("x_m,y_m,temperature_C\n")
     for _j, _yy in enumerate(y):
         for _i, _xx in enumerate(x):
-            csv.write(f"{float(_xx):.10g},{float(_yy):.10g},{float(T[_j, _i]):.10g}\\n")
+            csv.write(f"{float(_xx):.10g},{float(_yy):.10g},{float(T[_j, _i]):.10g}\n")
     st.download_button(
         "⬇ Ekspor seluruh data temperatur 2D (CSV)",
         csv.getvalue().encode("utf-8-sig"),
