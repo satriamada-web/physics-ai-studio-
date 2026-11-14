@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "sample-aluminium-plate-2d",
+  "name": "Aluminium Plate · 2D Steady",
+  "description": "Pelat aluminium dengan sisi kiri panas dan sisi lainnya lebih dingin.",
+  "settings": {
+    "mode": "Steady-state",
+    "material_name": "Aluminium 6061-T6",
+    "nx": 41,
+    "ny": 41,
+    "lx": 0.2,
+    "ly": 0.1,
+    "k": 167,
+    "rho": 2700,
+    "cp": 896,
+    "t_left": 100,
+    "t_right": 25,
+    "t_top": 25,
+    "t_bottom": 25,
+    "t_initial": 25,
+    "q_vol": 0,
+    "total_time": 10,
+    "solver_tolerance": 0.000001,
+    "solver_max_iterations": 30000,
+    "mesh_density_2d": "Normal / Sedang"
+  }
+}
