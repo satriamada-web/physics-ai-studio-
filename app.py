@@ -1010,16 +1010,21 @@ if run:
             else:
                 progress2_note.caption(f"Langkah waktu {current:,}/{total:,}")
         if mode == "Steady-state":
-            result = solve_steady_state(nx, ny, lx, ly, k, q_vol, boundary, t_initial, tolerance=solver_tolerance, max_iterations=solver_max_iterations, progress_callback=update_progress_2d)
-                residual = calculate_steady_residual(result["temperature"], k, lx, ly, q_vol)
-                info = f"Steady-state · {result['iterations']:,} iterasi · konvergen: {'Ya' if result['converged'] else 'Belum'}"
-                extra = f"Perubahan maksimum iterasi terakhir: {result['last_delta']:.3e} °C"
+            result = solve_steady_state(
+                nx, ny, lx, ly, k, q_vol, boundary, t_initial,
+                tolerance=solver_tolerance, max_iterations=solver_max_iterations,
+                progress_callback=update_progress_2d,
+            )
+            progress2.progress(100, text="Solver selesai")
+            residual = calculate_steady_residual(result["temperature"], k, lx, ly, q_vol)
+            info = f"Steady-state · {result['iterations']:,} iterasi · konvergen: {'Ya' if result['converged'] else 'Belum'}"
+            extra = f"Perubahan maksimum iterasi terakhir: {result['last_delta']:.3e} °C"
         else:
             dt_limit = 0.9 * stable_time_step(k, rho, cp, lx/(nx-1), ly/(ny-1))
-                steps_required = int(np.ceil(total_time / dt_limit))
-                if steps_required > 20000:
-                    st.error(f"Simulasi membutuhkan {steps_required:,} langkah (batas MVP 20.000). Kurangi waktu simulasi atau jumlah grid.")
-                    st.stop()
+            steps_required = int(np.ceil(total_time / dt_limit))
+            if steps_required > 20000:
+                st.error(f"Simulasi membutuhkan {steps_required:,} langkah (batas MVP 20.000). Kurangi waktu simulasi atau jumlah grid.")
+                st.stop()
             result = solve_transient(
                 nx, ny, lx, ly, k, rho, cp, q_vol, boundary, t_initial,
                 total_time, dt_limit, probe_x=probe_x_index, probe_y=probe_y_index,
@@ -1027,7 +1032,7 @@ if run:
             )
             progress2.progress(100, text="Integrasi waktu selesai")
             progress2_note.caption(f"{result['steps']:,} langkah selesai · t akhir {result['simulated_time']:.5g} s")
-                transient_diagnostics = calculate_transient_diagnostics(k, rho, cp, lx, ly, nx, ny, result["dt"])
+            transient_diagnostics = calculate_transient_diagnostics(k, rho, cp, lx, ly, nx, ny, result["dt"])
             info = f"Transient · {result['steps']:,} langkah · waktu akhir: {result['simulated_time']:.6g} s"
             extra = f"dt aktual = {result['dt']:.3e} s · batas stabilitas = {transient_diagnostics['dt_stability_limit']:.3e} s · rasio stabilitas = {transient_diagnostics['stability_ratio']:.3f}"
         st.session_state["last_result"] = {
@@ -1083,7 +1088,7 @@ else:
         r1, r2 = st.columns(2)
         r1.metric("Residual maksimum absolut", f"{data['residual']['residual_max_abs']:.3e} K/m²")
         r2.metric("Residual RMS", f"{data['residual']['residual_rms']:.3e} K/m²")
-    fig = go.Figure(go.Heatmap(z=T, x=x, y=y, colorscale="Inferno", colorbar={"title": "°C"},
+    fig = go.Figure(go.Heatmap(z=T, x=x, y=y, colorscale="Inferno", colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
         hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>T=%{z:.2f} °C<extra></extra>"))
     fig.update_layout(title="Distribusi temperatur 2D · Viewport", xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)", height=680)
     st.plotly_chart(fig, use_container_width=True)
@@ -1102,7 +1107,7 @@ else:
     q3.metric("Fluks minimum", f"{float(qmag.min()):.3g} W/m²")
     heat_flux_fig = go.Figure(go.Heatmap(
         z=qmag, x=x, y=y, colorscale="Viridis",
-        colorbar={"title": "W/m²"},
+        colorbar={"title": {"text": "FLUKS<br>W/m²", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
         hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>|q|=%{z:.3g} W/m²<extra></extra>",
     ))
     arrow_annotations = []
