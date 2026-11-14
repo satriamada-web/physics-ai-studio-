@@ -12,7 +12,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.2 · Kontrol solver, residual persamaan, verifikasi numerik, studi mesh, dan analisis fluks panas")
+st.caption("MVP 1.3 · Kontrol solver, residual persamaan, verifikasi numerik, studi mesh, dan analisis fluks panas")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
@@ -393,9 +393,9 @@ else:
         )
         st.plotly_chart(probe_fig, use_container_width=True)
         probe_csv = io.StringIO()
-        probe_csv.write("time_s,temperature_C\\n")
+        probe_csv.write("time_s,temperature_C\n")
         for time_value, temp_value in zip(data["probe_times"], data["probe_temperatures"]):
-            probe_csv.write(f"{time_value:.10g},{temp_value:.10g}\\n")
+            probe_csv.write(f"{time_value:.10g},{temp_value:.10g}\n")
         st.download_button(
             "⬇ Unduh riwayat temperatur titik (CSV)",
             probe_csv.getvalue().encode("utf-8"),
@@ -562,4 +562,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 1.2 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 1.3 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
