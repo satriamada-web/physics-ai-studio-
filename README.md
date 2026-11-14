@@ -5,7 +5,8 @@ Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di Git
 sedangkan perhitungan dijalankan pada server cloud Streamlit.
 
 ## Fitur
-- Diagnostik residual persamaan steady-state: residual maksimum absolut dan RMS dari persamaan beda hingga pada node interior.\n- Panel verifikasi numerik otomatis dengan empat kasus uji: residual steady-state, steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.
+- Diagnostik residual persamaan steady-state: residual maksimum absolut dan RMS dari persamaan beda hingga pada node interior.
+- Panel verifikasi numerik otomatis dengan empat kasus uji: residual steady-state, steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.
 - Konduksi panas 2D pada pelat persegi panjang.
 - Steady-state dengan iterasi Jacobi.
 - Transient dengan skema beda hingga eksplisit.
