@@ -608,24 +608,101 @@ with st.expander("Buat volume mesh dari geometri impor", expanded=False):
             )
 
 
+
+st.divider()
+st.header("Room Domain Builder · MVP 2.1")
+st.caption("Tambahkan domain udara ruangan secara terpisah. Tentukan dimensi ruang dan bukaan inlet/outlet pada dua dinding berlawanan.")
+with st.expander("Buat domain ruangan dan ventilasi", expanded=False):
+    from physics.room_domain_3d import create_room_domain
+
+    room_cols = st.columns(3)
+    with room_cols[0]:
+        room_lx = number_input_with_unit("Panjang ruangan X (m)", min_value=0.2, max_value=100.0, value=6.0, step=0.5, key="room_domain_lx")
+    with room_cols[1]:
+        room_ly = number_input_with_unit("Lebar ruangan Y (m)", min_value=0.2, max_value=100.0, value=4.0, step=0.5, key="room_domain_ly")
+    with room_cols[2]:
+        room_h = number_input_with_unit("Tinggi ruangan Z (m)", min_value=0.2, max_value=30.0, value=3.0, step=0.25, key="room_domain_h")
+    mesh_cols = st.columns(3)
+    with mesh_cols[0]:
+        room_nx = st.number_input("Sel mesh X", min_value=4, max_value=50, value=24, step=2, key="room_domain_nx")
+    with mesh_cols[1]:
+        room_ny = st.number_input("Sel mesh Y", min_value=4, max_value=50, value=16, step=2, key="room_domain_ny")
+    with mesh_cols[2]:
+        room_nz = st.number_input("Sel mesh Z", min_value=4, max_value=50, value=12, step=2, key="room_domain_nz")
+    wall_labels = {
+        "Dinding X minimum (kiri)": "x_min", "Dinding X maksimum (kanan)": "x_max",
+        "Dinding Y minimum (depan)": "y_min", "Dinding Y maksimum (belakang)": "y_max",
+        "Lantai (Z minimum)": "z_min", "Atap (Z maksimum)": "z_max",
+    }
+    inlet_label = st.selectbox("Dinding bukaan masuk / inlet", list(wall_labels), index=0, key="room_domain_inlet_wall")
+    inlet_wall = wall_labels[inlet_label]
+    opposite = {"x_min":"x_max","x_max":"x_min","y_min":"y_max","y_max":"y_min","z_min":"z_max","z_max":"z_min"}[inlet_wall]
+    outlet_label = next(label for label, value in wall_labels.items() if value == opposite)
+    st.text_input("Dinding bukaan keluar / outlet", value=outlet_label, disabled=True, key="room_domain_outlet_display")
+    aperture_cols = st.columns(2)
+    with aperture_cols[0]:
+        opening_w = st.slider("Lebar bukaan (% dinding)", 10, 100, 35, 5, key="room_domain_opening_w") / 100
+    with aperture_cols[1]:
+        opening_h = st.slider("Tinggi bukaan (% dinding)", 10, 100, 55, 5, key="room_domain_opening_h") / 100
+    st.caption("MVP ini membuat volume udara berbentuk balok dengan bukaan persegi panjang pada dua dinding berlawanan. Area dinding lainnya dianggap tertutup.")
+    if st.button("Buat / perbarui Room Domain", key="build_room_domain", type="primary"):
+        try:
+            st.session_state["room_domain_3d_result"] = create_room_domain(
+                float(room_lx), float(room_ly), float(room_h),
+                int(room_nx), int(room_ny), int(room_nz),
+                inlet_wall, opposite, float(opening_w), float(opening_h),
+            )
+            st.session_state.pop("wind_heat_3d_result", None)
+            st.success("Room Domain berhasil dibuat.")
+        except Exception as exc:
+            st.error(str(exc))
+    room_domain = st.session_state.get("room_domain_3d_result")
+    if room_domain:
+        room_metrics = st.columns(4)
+        room_metrics[0].metric("Volume udara", f"{room_domain['volume_estimate_m3']:.2f} m³")
+        room_metrics[1].metric("Sel domain", f"{room_domain['active_cell_count']:,}")
+        room_metrics[2].metric("Sel inlet", f"{room_domain['inlet_cell_count']:,}")
+        room_metrics[3].metric("Sel outlet", f"{room_domain['outlet_cell_count']:,}")
+        st.caption(f"Domain {room_domain['nx']} × {room_domain['ny']} × {room_domain['nz']} sel · inlet {room_domain['inlet_wall']} → outlet {room_domain['outlet_wall']}.")
+
 st.divider()
 st.header("Wind & Heat Transport · MVP 2.0")
 st.caption("Simulasikan perpindahan panas oleh angin pada volume mesh geometri impor. Arah dan kecepatan angin ditentukan pengguna.")
 with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
     from physics.wind_heat_3d import solve_wind_heat_transport
 
-    flow_mesh = st.session_state.get("volume_mesh_3d_result")
-    if not flow_mesh:
-        st.info("Impor geometri tertutup, lalu buat Volume Mesh terlebih dahulu.")
+    room_mesh = st.session_state.get("room_domain_3d_result")
+    imported_mesh = st.session_state.get("volume_mesh_3d_result")
+    domain_options = []
+    if room_mesh: domain_options.append("Room Domain")
+    if imported_mesh: domain_options.append("Imported Geometry")
+    flow_mesh = None
+    domain_kind = None
+    if not domain_options:
+        st.info("Buat Room Domain atau impor geometri tertutup lalu buat Volume Mesh terlebih dahulu.")
     else:
+        if len(domain_options) > 1:
+            domain_kind = st.selectbox("Pilih domain simulasi", domain_options, key="wind3d_domain_choice")
+        else:
+            domain_kind = domain_options[0]
+        flow_mesh = room_mesh if domain_kind == "Room Domain" else imported_mesh
         st.write(f"Domain aktif: **{flow_mesh['active_cell_count']:,} sel udara** · resolusi {flow_mesh['nx']} × {flow_mesh['ny']} × {flow_mesh['nz']}.")
         direction_cols = st.columns(3)
         with direction_cols[0]:
             wind_speed = st.number_input("Kecepatan angin (m/s)", min_value=0.0, max_value=100.0, value=1.0, step=0.5, key="wind3d_speed")
-        with direction_cols[1]:
-            wind_azimuth = st.number_input("Arah horizontal / azimut (°)", min_value=-180.0, max_value=180.0, value=0.0, step=5.0, key="wind3d_azimuth", help="0° = +X, 90° = +Y, 180° = -X, -90° = -Y.")
-        with direction_cols[2]:
-            wind_elevation = st.number_input("Sudut naik/turun (°)", min_value=-90.0, max_value=90.0, value=0.0, step=5.0, key="wind3d_elevation", help="0° horizontal, positif ke atas (+Z), negatif ke bawah.")
+        if domain_kind == "Room Domain":
+            direction = np.asarray(flow_mesh["velocity_direction"], dtype=float)
+            wind_azimuth = float(np.degrees(np.arctan2(direction[1], direction[0])))
+            wind_elevation = float(np.degrees(np.arctan2(direction[2], np.hypot(direction[0], direction[1]))))
+            with direction_cols[1]:
+                st.text_input("Arah angin", value=f"{flow_mesh['inlet_wall']} → {flow_mesh['outlet_wall']}", disabled=True)
+            with direction_cols[2]:
+                st.text_input("Vektor satuan", value=", ".join(f"{v:+.0f}" for v in direction), disabled=True)
+        else:
+            with direction_cols[1]:
+                wind_azimuth = st.number_input("Arah horizontal / azimut (°)", min_value=-180.0, max_value=180.0, value=0.0, step=5.0, key="wind3d_azimuth", help="0° = +X, 90° = +Y, 180° = -X, -90° = -Y.")
+            with direction_cols[2]:
+                wind_elevation = st.number_input("Sudut naik/turun (°)", min_value=-90.0, max_value=90.0, value=0.0, step=5.0, key="wind3d_elevation", help="0° horizontal, positif ke atas (+Z), negatif ke bawah.")
         thermal_cols = st.columns(4)
         with thermal_cols[0]:
             wind_inlet_temp = number_input_with_unit("Suhu udara masuk (°C)", value=35.0, step=1.0, key="wind3d_inlet_temp")
@@ -643,7 +720,7 @@ with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
                 air_cp = number_input_with_unit("Kalor jenis udara (J/kg·K)", min_value=1.0, max_value=10000.0, value=1005.0, step=5.0, key="wind3d_cp")
             with air_cols[2]:
                 air_k = number_input_with_unit("Konduktivitas udara (W/m·K)", min_value=0.0001, max_value=10.0, value=0.026, step=0.001, key="wind3d_k")
-        st.caption("Azimut diukur dari sumbu +X menuju +Y. Angin masuk melalui sisi hulu domain voxel; sisi geometri lainnya diasumsikan adiabatik. Kecepatan angin dipaksakan seragam, bukan dihitung dari Navier–Stokes.")
+        st.caption("Pada Room Domain, arah aliran ditentukan oleh pasangan dinding inlet → outlet. Pada Imported Geometry, arah ditentukan oleh azimut dan elevasi. Medan kecepatan masih dipaksakan seragam.")
         if st.button("▶ Jalankan simulasi aliran panas", key="run_wind_heat_3d", type="primary"):
             st.session_state["windheat3d_job_id"] = submit_job(
                 "wind-heat-transport-3d", solve_wind_heat_transport,
@@ -653,6 +730,10 @@ with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
                 float(wind_inlet_temp), float(wind_initial_temp),
                 float(air_rho), float(air_cp), float(air_k),
                 float(wind_duration), float(wind_source),
+                **({
+                    "inlet_mask_zyx": flow_mesh["inlet_mask_zyx"],
+                    "outlet_mask_zyx": flow_mesh["outlet_mask_zyx"],
+                } if domain_kind == "Room Domain" else {}),
             )
             st.session_state.pop("wind_heat_3d_result", None)
         render_job_monitor("windheat3d_job_id", "wind_heat_3d_result", "Simulasi aliran dan perpindahan panas")
@@ -695,7 +776,7 @@ with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
             metrics[2].metric("Suhu minimum", f"{np.nanmin(field):.2f} °C")
             metrics[3].metric("Suhu maksimum", f"{np.nanmax(field):.2f} °C")
             st.caption(f"{wind_result['steps']:,} langkah waktu · dt = {wind_result['dt_actual']:.3g} s · sel inlet = {wind_result['inlet_cell_count']:,}.")
-            st.warning("Model MVP ini menyelesaikan adveksi-difusi suhu dengan medan kecepatan angin yang ditentukan pengguna. Belum menghitung tekanan, kontinuitas momentum Navier–Stokes, turbulensi, buoyancy, slip/no-slip dinding, atau pertukaran panas konjugat dengan rangka/kaca. Bukaan pintu dan jendela belum dapat dipisahkan sebagai boundary independen dari mesh permukaan tertutup.")
+            st.warning("Model MVP ini menyelesaikan adveksi-difusi suhu dengan kecepatan yang ditentukan pengguna. Room Domain mendukung patch inlet/outlet pada dua dinding berlawanan; belum menghitung Navier–Stokes, tekanan, turbulensi, buoyancy, profil kecepatan bukaan, atau perpindahan panas konjugat pada kaca/rangka.")
             flow_csv = io.StringIO()
             flow_csv.write("x_m,y_m,z_m,temperature_C\n")
             for p, temp in zip(cell_centers, cell_temp):
