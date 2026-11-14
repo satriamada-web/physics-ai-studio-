@@ -547,6 +547,67 @@ with st.expander("Geometry Builder 3D", expanded=False):
         st.info("Geometri ini masih berupa permukaan segitiga (surface mesh). Solver 3D saat ini memakai grid Cartesian terstruktur dan belum menerima geometri arbitrer ini secara langsung.")
 
 st.divider()
+st.header("Volume Mesh Generator · MVP 1.7")
+st.caption("Buat pendekatan volume hexahedral berbasis voxel dari permukaan tertutup yang diimpor. Batas geometri masih stair-step dan belum conforming FEM.")
+with st.expander("Buat volume mesh dari geometri impor", expanded=False):
+    from physics.volume_mesh_3d import create_voxel_volume_mesh
+
+    imported_geometry = st.session_state.get("geometry_3d_result")
+    if not imported_geometry or not imported_geometry.get("source_filename"):
+        st.info("Impor file OBJ atau STL terlebih dahulu pada Geometry Builder 3D.")
+    elif not imported_geometry.get("is_watertight"):
+        st.warning("Permukaan belum tertutup/manifold. Perbaiki geometri sebelum membuat volume mesh.")
+    else:
+        st.write(f"Geometri sumber: **{imported_geometry['source_filename']}** · {imported_geometry['face_count']:,} segitiga.")
+        voxel_resolution = st.slider(
+            "Resolusi volume mesh (sumbu terpanjang)", min_value=4, max_value=40,
+            value=16, step=2, key="voxel_volume_resolution",
+            help="Resolusi lebih tinggi menghasilkan detail lebih baik tetapi waktu komputasi meningkat."
+        )
+        st.caption("Batas awal: maksimum 50.000 sel kandidat. Setiap sel aktif adalah hexahedral voxel di dalam permukaan.")
+        if st.button("Generate volume mesh", key="generate_voxel_volume_mesh", type="primary"):
+            st.session_state["volume3d_job_id"] = submit_job(
+                "voxel-volume-mesh", create_voxel_volume_mesh,
+                imported_geometry["vertices"], imported_geometry["faces"],
+                int(voxel_resolution),
+            )
+            st.session_state.pop("volume_mesh_3d_result", None)
+            st.session_state.pop("volume_mesh_3d_error", None)
+        render_job_monitor("volume3d_job_id", "volume_mesh_3d_result", "Pembuatan voxel volume mesh")
+        volume_mesh = st.session_state.get("volume_mesh_3d_result")
+        if volume_mesh:
+            centers = volume_mesh["cell_centers"]
+            stride = max(1, int(np.ceil(len(centers) / 12000)))
+            shown = centers[::stride]
+            volume_fig = go.Figure(go.Scatter3d(
+                x=shown[:, 0], y=shown[:, 1], z=shown[:, 2],
+                mode="markers",
+                marker={"size": 3, "opacity": 0.72},
+                hovertemplate="x=%{x:.4g} m<br>y=%{y:.4g} m<br>z=%{z:.4g} m<extra>Cell center</extra>",
+            ))
+            volume_fig.update_layout(
+                title="Volume mesh · pusat sel hexahedral (sampel)",
+                scene={"xaxis_title":"X (m)","yaxis_title":"Y (m)","zaxis_title":"Z (m)","aspectmode":"data"},
+                height=560, margin={"l":0,"r":0,"t":35,"b":0},
+            )
+            st.plotly_chart(volume_fig, use_container_width=True, key="voxel_volume_mesh_preview")
+            v1, v2, v3, v4 = st.columns(4)
+            v1.metric("Sel volume aktif", f"{volume_mesh['active_cell_count']:,}")
+            v2.metric("Sel kandidat", f"{volume_mesh['candidate_cell_count']:,}")
+            v3.metric("Estimasi volume", f"{volume_mesh['volume_estimate_m3']:.5g} m³")
+            v4.metric("Ukuran sel dx/dy/dz", f"{volume_mesh['dx']:.3g} / {volume_mesh['dy']:.3g} / {volume_mesh['dz']:.3g} m")
+            st.success("Volume mesh voxel berhasil dibuat dari geometri tertutup.")
+            st.warning("Mesh ini adalah pendekatan voxel hexahedral dengan batas bertangga. Belum terhubung ke solver 3D dan tidak boleh dianggap sebagai mesh FEM conforming.")
+            st.download_button(
+                "Unduh pusat sel volume (CSV)",
+                "x_m,y_m,z_m\\n" + "\\n".join(
+                    f"{p[0]:.10g},{p[1]:.10g},{p[2]:.10g}" for p in centers
+                ),
+                file_name="physics_ai_studio_volume_cell_centers.csv",
+                mime="text/csv",
+            )
+
+st.divider()
 st.header("Structured 3D Mesh Engine · MVP 1.5")
 st.caption("Bangun grid Cartesian node-centred untuk domain balok. Grid ini memakai konvensi array (z, y, x) yang kompatibel dengan fondasi solver panas 3D.")
 with st.expander("Buka 3D Mesh Engine", expanded=False):
