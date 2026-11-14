@@ -4,10 +4,12 @@ Coordinates are centered at the origin and expressed in meters.
 Meshes are triangular surface meshes intended for preview, not FEM volume meshes.
 """
 import numpy as np
+from physics.worker import check_cancel
 
 
-def create_geometry(shape, dimensions, resolution=24):
+def create_geometry(shape, dimensions, resolution=24, progress_callback=None, cancel_event=None):
     """Return vertices (N,3), triangular faces (M,3), and metadata."""
+    check_cancel(cancel_event)
     if shape not in {"Kubus", "Balok", "Silinder"}:
         raise ValueError("Bentuk geometri tidak didukung.")
     if not isinstance(dimensions, dict):
@@ -58,6 +60,9 @@ def create_geometry(shape, dimensions, resolution=24):
         lx = ly = 2*radius
         lz = height
 
+    check_cancel(cancel_event)
+    if progress_callback:
+        progress_callback(1, 1, None)
     return {
         "shape": shape, "vertices": vertices, "faces": faces,
         "dimensions_m": {"x": float(lx), "y": float(ly), "z": float(lz)},
