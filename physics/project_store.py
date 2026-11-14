@@ -29,7 +29,7 @@ KEYS = {
     "heat3d_q", "heat3d_bxmin", "heat3d_bxmax", "heat3d_bymin", "heat3d_bymax",
     "heat3d_bzmin", "heat3d_bzmax", "heat3d_initial", "heat3d_tolerance",
     "heat3d_iterations", "heat3d_total_time", "heat3d_max_dt",
-    "heat2d_colormap", "heat3d_colormap", "heat3d_slice_axis",
+    "heat2d_colormap", "heat3d_colormap", "heat3d_slice_axis", "heat3d_slice_x",\n    "heat3d_slice_y", "heat3d_slice_z",
 }
 
 def _safe_name(name: str) -> str:
