@@ -136,7 +136,7 @@ def build_heat_transfer_pdf(data):
 
     story = [
         Paragraph("PHYSICS AI STUDIO", styles["ReportTitle"]),
-        Paragraph("HEAT TRANSFER SIMULATION REPORT · MVP 0.6", styles["SubTitle"]),
+        Paragraph("HEAT TRANSFER SIMULATION REPORT · MVP 1.0", styles["SubTitle"]),
         Paragraph("1. Simulation Overview", styles["Section"]),
         Paragraph(
             f"<b>Simulation mode:</b> {data['mode']}<br/>"
@@ -244,6 +244,20 @@ def build_heat_transfer_pdf(data):
             styles["SmallNote"],
         ),
     ])
+
+    if data.get("residual") is not None:
+        story.insert(-1, Paragraph("10. Steady-State Equation Residual", styles["Section"]))
+        story.insert(-1, add_table([
+            ["Diagnostic", "Result"],
+            ["Maximum absolute residual", f"{data['residual']['residual_max_abs']:.5e} K/m²"],
+            ["RMS residual", f"{data['residual']['residual_rms']:.5e} K/m²"],
+        ], [70 * mm, 90 * mm]))
+        story.insert(-1, Paragraph(
+            "Residual is evaluated on interior nodes using the discrete Laplace/Poisson equation. "
+            "It measures equation consistency for this grid; it is not an estimate of experimental error "
+            "and should be compared only with consistent mesh and scaling.",
+            styles["SmallNote"],
+        ))
 
     def footer(canvas, document):
         canvas.saveState()
