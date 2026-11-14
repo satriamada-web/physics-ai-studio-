@@ -21,6 +21,7 @@ COLORMAP_OPTIONS = {
 }
 PLOTLY_EXPORT_CONFIG = {
     "displaylogo": False,
+    "displayModeBar": True,
     "responsive": True,
     "toImageButtonOptions": {
         "format": "png", "filename": "physics_ai_studio_viewport",
