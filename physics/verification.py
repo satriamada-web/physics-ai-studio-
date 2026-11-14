@@ -5,6 +5,7 @@ from physics.heat_transfer import (
     solve_transient,
     stable_time_step,
     calculate_heat_flux,
+    calculate_steady_residual,
 )
 
 
@@ -23,6 +24,15 @@ def run_verification_suite():
         31, 31, 0.1, 0.1, 16.2, 0.0, uniform_boundary, 50.0
     )
     steady_error = float(np.max(np.abs(steady["temperature"] - 50.0)))
+    steady_residual = calculate_steady_residual(steady["temperature"], 16.2, 0.1, 0.1, 0.0)
+    residual_error = steady_residual["residual_max_abs"]
+    results.append({
+        "Uji": "Residual persamaan steady-state",
+        "Error maksimum": residual_error,
+        "Toleransi": 1e-8,
+        "Status": "LULUS" if residual_error <= 1e-8 else "GAGAL",
+        "Keterangan": "Medan temperatur seragam tanpa sumber memiliki residual nol",
+    })
     results.append({
         "Uji": "Steady-state temperatur seragam",
         "Error maksimum": steady_error,
