@@ -167,8 +167,8 @@ def build_heat_transfer_pdf(data):
         ["Domain length X", f"{p['lx']:.5g} m"],
         ["Domain length Y", f"{p['ly']:.5g} m"],
         ["Grid", f"{p['nx']} × {p['ny']} nodes"],
-        ["Grid spacing Δx", f"{x[1]-x[0]:.5g} m"],
-        ["Grid spacing Δy", f"{y[1]-y[0]:.5g} m"],
+        ["Grid spacing dx", f"{x[1]-x[0]:.5g} m"],
+        ["Grid spacing dy", f"{y[1]-y[0]:.5g} m"],
     ], [70 * mm, 90 * mm]))
 
     story.extend([
@@ -176,9 +176,9 @@ def build_heat_transfer_pdf(data):
         add_table([
             ["Property", "Value"],
             ["Thermal conductivity, k", f"{p['k']:.5g} W/(m·K)"],
-            ["Density, ρ", f"{p['rho']:.5g} kg/m³"],
+            ["Density, rho", f"{p['rho']:.5g} kg/m³"],
             ["Specific heat, cp", f"{p['cp']:.5g} J/(kg·K)"],
-            ["Thermal diffusivity, α", f"{p['k']/(p['rho']*p['cp']):.5e} m²/s"],
+            ["Thermal diffusivity, alpha", f"{p['k']/(p['rho']*p['cp']):.5e} m²/s"],
             ["Volumetric heat generation", f"{p['q']:.5g} W/m³"],
             ["Initial temperature", f"{p['initial']:.5g} °C"],
         ], [70 * mm, 90 * mm]),
