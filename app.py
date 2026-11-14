@@ -217,6 +217,7 @@ c3.metric("Konduktivitas", f"{k:g} W/m·K")
 c4.metric("Difusivitas termal", f"{k/(rho*cp):.3e} m²/s")
 
 if run:
+    st.session_state.pop("mesh_study_result", None)
     boundary = {"left": float(t_left), "right": float(t_right), "top": float(t_top), "bottom": float(t_bottom)}
     try:
         with st.spinner("Menghitung solusi numerik..."):
