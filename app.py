@@ -338,7 +338,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             zc, yc, xc = np.meshgrid(active_mesh["z"], active_mesh["y"], active_mesh["x"], indexing="ij")
             volume_fig3 = go.Figure(go.Volume(
                 x=xc.ravel(), y=yc.ravel(), z=zc.ravel(), value=viewT3.ravel(),
-                isomin=float(viewT3.min()), isomax=float(viewT3.max()),
+                isomin=float(viewT3.min()) - 1e-9, isomax=float(viewT3.max()) + 1e-9,
                 opacity=0.12, surface_count=12, colorscale="Inferno",
                 colorbar={"title": "°C"},
             ))
