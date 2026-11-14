@@ -3,7 +3,8 @@ import json
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
-from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step, calculate_heat_flux, calculate_steady_residual, calculate_transient_diagnostics
+from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step, calculate_heat_flux, calculate_steady_residual
+from physics.transient_diagnostics import calculate_transient_diagnostics
 from physics.reporting import build_heat_transfer_pdf
 from physics.materials import MATERIALS
 from physics.verification import run_verification_suite
