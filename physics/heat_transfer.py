@@ -8,12 +8,15 @@ from physics.worker import check_cancel
 
 
 def _validate(nx, ny, lx, ly, k, boundary):
-    if nx < 3 or ny < 3:
-        raise ValueError("Grid X dan Y minimal 3.")
-    if lx <= 0 or ly <= 0 or k <= 0:
-        raise ValueError("Panjang domain dan konduktivitas harus positif.")
+    if isinstance(nx, bool) or isinstance(ny, bool) or int(nx) != nx or int(ny) != ny or nx < 3 or ny < 3:
+        raise ValueError("Grid X dan Y harus bilangan bulat minimal 3.")
     if not {"left", "right", "top", "bottom"}.issubset(boundary):
         raise ValueError("Kondisi batas harus memiliki left, right, top, bottom.")
+    values = [lx, ly, k] + [boundary[key] for key in ("left", "right", "top", "bottom")]
+    if not np.isfinite(np.asarray(values, dtype=float)).all():
+        raise ValueError("Dimensi, material, dan temperatur boundary harus berupa angka finite.")
+    if lx <= 0 or ly <= 0 or k <= 0:
+        raise ValueError("Panjang domain dan konduktivitas harus lebih besar dari nol.")
 
 
 def _boundary(T, b):
@@ -32,6 +35,8 @@ def solve_steady_state(nx, ny, lx, ly, conductivity, heat_generation, boundary,
                        initial_temperature=25.0, tolerance=1e-6, max_iterations=30000, progress_callback=None, cancel_event=None):
     """Persamaan steady-state: Laplacian(T) + q_vol/k = 0; iterasi Jacobi."""
     _validate(nx, ny, lx, ly, conductivity, boundary)
+    if not np.isfinite([heat_generation, initial_temperature, tolerance]).all() or tolerance <= 0 or int(max_iterations) < 1:
+        raise ValueError("Sumber panas dan temperatur awal harus finite; toleransi dan iterasi maksimum harus positif.")
     dx, dy = lx / (nx - 1), ly / (ny - 1)
     T = np.full((ny, nx), float(initial_temperature))
     _boundary(T, boundary)
@@ -104,8 +109,10 @@ def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
     total_time / steps. Dengan demikian waktu simulasi tidak melewati target.
     """
     _validate(nx, ny, lx, ly, conductivity, boundary)
+    if not np.isfinite([density, specific_heat, total_time, dt, heat_generation, initial_temperature]).all():
+        raise ValueError("Parameter transient harus berupa angka finite.")
     if min(density, specific_heat, total_time, dt) <= 0:
-        raise ValueError("rho, cp, waktu, dan dt harus positif.")
+        raise ValueError("rho, cp, waktu, dan dt harus lebih besar dari nol.")
 
     dx, dy = lx / (nx - 1), ly / (ny - 1)
     alpha = conductivity / (density * specific_heat)
