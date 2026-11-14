@@ -25,12 +25,11 @@ div[data-testid="stExpander"]{border:1px solid rgba(128,128,128,.18);border-radi
 div[data-testid="stExpander"] details summary p{font-size:.92rem;font-weight:600}
 .stButton button,.stDownloadButton button{min-height:2.35rem;font-size:.88rem;border-radius:8px}
 div[data-testid="stNumberInput"] input,div[data-testid="stSelectbox"] div,div[data-testid="stRadio"] label{font-size:.88rem}
-hr{margin:.8rem 0}
+hr{margin:.8rem 0}\n.app-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1px solid rgba(128,128,128,.22);border-radius:9px 9px 0 0;background:rgba(128,128,128,.045)}\n.app-name{font-size:1.05rem;font-weight:750;letter-spacing:.09em}\n.app-subtitle{font-size:.74rem;opacity:.68;margin-top:3px}\n.app-status{font-size:.72rem;font-weight:650;color:#26966b}\n.app-ribbon{padding:8px 14px;border:1px solid rgba(128,128,128,.22);border-top:0;border-radius:0 0 9px 9px;font-size:.72rem;font-weight:600;letter-spacing:.025em;opacity:.82;margin-bottom:12px}\n[data-testid="stSidebar"] [data-testid="stTabs"] button{font-size:.82rem}
 </style>
 """, unsafe_allow_html=True)
-st.title("Physics AI Studio")
-st.caption("MVP 1.9 · 3D Heat Transfer, post-processing, heat-flux vectors, dan energy balance")
-st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
+st.markdown("""<div class="app-topbar"><div><div class="app-name">PHYSICS AI STUDIO</div><div class="app-subtitle">Multiphysics Simulation Environment · MVP 1.9</div></div><div class="app-status">● READY</div></div><div class="app-ribbon">FILE　 MODEL　 GEOMETRY　 MATERIALS　 PHYSICS　 MESH　 STUDY　 RESULTS</div>""", unsafe_allow_html=True)
+st.caption("3D Heat Transfer · 2D Heat Transfer · Scientific Computing")
 
 st.divider()
 st.header("Geometry Builder 3D · MVP 1.4")
@@ -689,77 +688,106 @@ st.session_state.setdefault("_settings_undo", [])
 st.session_state.setdefault("_settings_redo", [])
 
 with st.sidebar:
-    st.header("Pengaturan")
-    h1, h2 = st.columns(2)
-    h1.button("↶ Undo", use_container_width=True, disabled=not st.session_state["_settings_undo"], on_click=undo_settings)
-    h2.button("↷ Redo", use_container_width=True, disabled=not st.session_state["_settings_redo"], on_click=redo_settings)
-    st.button("⟲ Default Settings", use_container_width=True, on_click=reset_settings)
-    st.caption("Undo/Redo menyimpan hingga 50 perubahan parameter.")
-    st.divider()
-    st.header("Preset konfigurasi")
-    st.caption("Preset tersimpan sementara selama sesi aplikasi. Ekspor JSON agar dapat digunakan kembali di sesi lain.")
-    st.text_input("Nama preset", key="preset_name_input", placeholder="Contoh: Aluminium 2D")
-    st.button("💾 Simpan konfigurasi saat ini", use_container_width=True, on_click=save_preset)
-    _presets = st.session_state.setdefault("_user_presets", {})
-    if _presets:
-        st.selectbox("Preset tersimpan", list(_presets.keys()), key="_preset_selected")
-        st.button("Terapkan preset", use_container_width=True, on_click=load_preset)
-        st.button("Hapus preset terpilih", use_container_width=True, on_click=delete_preset)
-        _selected = st.session_state.get("_preset_selected")
-        if _selected in _presets:
-            st.download_button(
-                "⬇ Ekspor preset JSON",
-                json.dumps({"name": _selected, "settings": _presets[_selected]}, indent=2).encode("utf-8"),
-                file_name=f"physics_ai_preset_{_selected.lower().replace(' ', '_')}.json",
-                mime="application/json",
-                use_container_width=True,
-            )
-    st.file_uploader("Impor preset JSON", type=["json"], key="preset_upload")
-    st.button("Impor file preset", use_container_width=True, on_click=import_preset)
-    if st.session_state.get("_preset_message"):
-        st.caption(st.session_state["_preset_message"])
-    st.divider()
-    st.header("1 · Model fisika")
-    mode = st.selectbox("Jenis simulasi", ["Steady-state", "Transient"], key="mode", on_change=record_settings_change)
-    nx = st.slider("Jumlah grid arah X", 11, 101, step=2, key="nx", on_change=record_settings_change)
-    ny = st.slider("Jumlah grid arah Y", 11, 101, step=2, key="ny", on_change=record_settings_change)
-    st.header("Pengaturan solver")
-    solver_tolerance = st.number_input("Toleransi konvergensi", min_value=1e-10, max_value=1e-2, step=1e-7, format="%.1e", key="solver_tolerance", on_change=record_settings_change, help="Batas perubahan maksimum temperatur antar iterasi Jacobi, dalam °C.")
-    solver_max_iterations = st.number_input("Iterasi maksimum", min_value=1000, max_value=100000, step=1000, key="solver_max_iterations", on_change=record_settings_change)
-    st.header("2 · Geometri")
-    lx = st.number_input("Panjang X (m)", 0.01, 2.0, step=0.01, format="%.3f", key="lx", on_change=record_settings_change)
-    ly = st.number_input("Panjang Y (m)", 0.01, 2.0, step=0.01, format="%.3f", key="ly", on_change=record_settings_change)
-    st.header("3 · Sifat material")
-    material_name = st.selectbox(
-        "Pilih material",
-        list(MATERIALS.keys()),
-        key="material_name",
-        on_change=select_material,
-    )
-    material_info = MATERIALS[material_name]
-    st.caption(material_info["description"])
-    if material_name != "Custom":
-        st.caption("Sumber data: " + material_info["reference"])
-    k = st.number_input("Konduktivitas termal k (W/m·K)", 0.01, 2000.0, step=1.0, key="k", on_change=record_settings_change)
-    rho = st.number_input("Massa jenis (kg/m³)", 1.0, 25000.0, step=100.0, key="rho", on_change=record_settings_change)
-    cp = st.number_input("Kalor jenis cp (J/kg·K)", 1.0, 10000.0, step=10.0, key="cp", on_change=record_settings_change)
-    st.header("4 · Kondisi batas")
-    st.caption("Temperatur pada keempat sisi pelat dianggap tetap.")
-    t_left = st.number_input("Sisi kiri (°C)", step=5.0, key="t_left", on_change=record_settings_change)
-    t_right = st.number_input("Sisi kanan (°C)", step=5.0, key="t_right", on_change=record_settings_change)
-    t_top = st.number_input("Sisi atas (°C)", step=5.0, key="t_top", on_change=record_settings_change)
-    t_bottom = st.number_input("Sisi bawah (°C)", step=5.0, key="t_bottom", on_change=record_settings_change)
-    t_initial = st.number_input("Temperatur awal (°C)", step=5.0, key="t_initial", on_change=record_settings_change)
-    st.header("5 · Sumber panas")
-    q_vol = st.number_input("Pembangkitan panas volumetrik (W/m³)", 0.0, 1.0e8, step=1000.0, key="q_vol", on_change=record_settings_change)
-    total_time = st.number_input("Lama simulasi (detik)", 0.01, 10000.0, step=1.0, key="total_time", on_change=record_settings_change) if mode == "Transient" else None
-    if mode == "Transient":
-        st.subheader("Titik pemantauan temperatur")
-        probe_x_index = st.slider("Indeks titik X", 0, nx - 1, nx // 2, help="0 = sisi kiri; indeks maksimum = sisi kanan.")
-        probe_y_index = st.slider("Indeks titik Y", 0, ny - 1, ny // 2, help="0 = sisi bawah; indeks maksimum = sisi atas.")
-    else:
-        probe_x_index, probe_y_index = nx // 2, ny // 2
-    run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True)
+    model_tab, settings_tab = st.tabs(["Model Builder", "Settings"])
+    with model_tab:
+        st.markdown("**Physics AI Studio**")
+        st.caption("Model workspace")
+        st.markdown("""
+        **Model**
+        - **Component 1 · 3D**
+          - Geometry
+          - Materials
+          - Heat Transfer
+          - Mesh
+        - **Study 1**
+          - Stationary
+          - Time Dependent
+        - **Results**
+          - Temperature
+          - Heat Flux
+          - Energy Balance
+        ---
+        **Component 2 · 2D**
+        - Geometry
+        - Materials
+        - Heat Transfer
+        - Boundary Conditions
+        - Study
+        - Results
+        """)
+        st.caption("Pohon ini adalah navigasi konseptual. Pemilihan node dan pengaturan kontekstual akan diimplementasikan bertahap.")
+    with settings_tab:
+        st.header("Pengaturan")
+        h1, h2 = st.columns(2)
+        h1.button("↶ Undo", use_container_width=True, disabled=not st.session_state["_settings_undo"], on_click=undo_settings)
+        h2.button("↷ Redo", use_container_width=True, disabled=not st.session_state["_settings_redo"], on_click=redo_settings)
+        st.button("⟲ Default Settings", use_container_width=True, on_click=reset_settings)
+        st.caption("Undo/Redo menyimpan hingga 50 perubahan parameter.")
+        st.divider()
+        st.header("Preset konfigurasi")
+        st.caption("Preset tersimpan sementara selama sesi aplikasi. Ekspor JSON agar dapat digunakan kembali di sesi lain.")
+        st.text_input("Nama preset", key="preset_name_input", placeholder="Contoh: Aluminium 2D")
+        st.button("💾 Simpan konfigurasi saat ini", use_container_width=True, on_click=save_preset)
+        _presets = st.session_state.setdefault("_user_presets", {})
+        if _presets:
+            st.selectbox("Preset tersimpan", list(_presets.keys()), key="_preset_selected")
+            st.button("Terapkan preset", use_container_width=True, on_click=load_preset)
+            st.button("Hapus preset terpilih", use_container_width=True, on_click=delete_preset)
+            _selected = st.session_state.get("_preset_selected")
+            if _selected in _presets:
+                st.download_button(
+                    "⬇ Ekspor preset JSON",
+                    json.dumps({"name": _selected, "settings": _presets[_selected]}, indent=2).encode("utf-8"),
+                    file_name=f"physics_ai_preset_{_selected.lower().replace(' ', '_')}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                )
+        st.file_uploader("Impor preset JSON", type=["json"], key="preset_upload")
+        st.button("Impor file preset", use_container_width=True, on_click=import_preset)
+        if st.session_state.get("_preset_message"):
+            st.caption(st.session_state["_preset_message"])
+        st.divider()
+        st.header("1 · Model fisika")
+        mode = st.selectbox("Jenis simulasi", ["Steady-state", "Transient"], key="mode", on_change=record_settings_change)
+        nx = st.slider("Jumlah grid arah X", 11, 101, step=2, key="nx", on_change=record_settings_change)
+        ny = st.slider("Jumlah grid arah Y", 11, 101, step=2, key="ny", on_change=record_settings_change)
+        st.header("Pengaturan solver")
+        solver_tolerance = st.number_input("Toleransi konvergensi", min_value=1e-10, max_value=1e-2, step=1e-7, format="%.1e", key="solver_tolerance", on_change=record_settings_change, help="Batas perubahan maksimum temperatur antar iterasi Jacobi, dalam °C.")
+        solver_max_iterations = st.number_input("Iterasi maksimum", min_value=1000, max_value=100000, step=1000, key="solver_max_iterations", on_change=record_settings_change)
+        st.header("2 · Geometri")
+        lx = st.number_input("Panjang X (m)", 0.01, 2.0, step=0.01, format="%.3f", key="lx", on_change=record_settings_change)
+        ly = st.number_input("Panjang Y (m)", 0.01, 2.0, step=0.01, format="%.3f", key="ly", on_change=record_settings_change)
+        st.header("3 · Sifat material")
+        material_name = st.selectbox(
+            "Pilih material",
+            list(MATERIALS.keys()),
+            key="material_name",
+            on_change=select_material,
+        )
+        material_info = MATERIALS[material_name]
+        st.caption(material_info["description"])
+        if material_name != "Custom":
+            st.caption("Sumber data: " + material_info["reference"])
+        k = st.number_input("Konduktivitas termal k (W/m·K)", 0.01, 2000.0, step=1.0, key="k", on_change=record_settings_change)
+        rho = st.number_input("Massa jenis (kg/m³)", 1.0, 25000.0, step=100.0, key="rho", on_change=record_settings_change)
+        cp = st.number_input("Kalor jenis cp (J/kg·K)", 1.0, 10000.0, step=10.0, key="cp", on_change=record_settings_change)
+        st.header("4 · Kondisi batas")
+        st.caption("Temperatur pada keempat sisi pelat dianggap tetap.")
+        t_left = st.number_input("Sisi kiri (°C)", step=5.0, key="t_left", on_change=record_settings_change)
+        t_right = st.number_input("Sisi kanan (°C)", step=5.0, key="t_right", on_change=record_settings_change)
+        t_top = st.number_input("Sisi atas (°C)", step=5.0, key="t_top", on_change=record_settings_change)
+        t_bottom = st.number_input("Sisi bawah (°C)", step=5.0, key="t_bottom", on_change=record_settings_change)
+        t_initial = st.number_input("Temperatur awal (°C)", step=5.0, key="t_initial", on_change=record_settings_change)
+        st.header("5 · Sumber panas")
+        q_vol = st.number_input("Pembangkitan panas volumetrik (W/m³)", 0.0, 1.0e8, step=1000.0, key="q_vol", on_change=record_settings_change)
+        total_time = st.number_input("Lama simulasi (detik)", 0.01, 10000.0, step=1.0, key="total_time", on_change=record_settings_change) if mode == "Transient" else None
+        if mode == "Transient":
+            st.subheader("Titik pemantauan temperatur")
+            probe_x_index = st.slider("Indeks titik X", 0, nx - 1, nx // 2, help="0 = sisi kiri; indeks maksimum = sisi kanan.")
+            probe_y_index = st.slider("Indeks titik Y", 0, ny - 1, ny // 2, help="0 = sisi bawah; indeks maksimum = sisi atas.")
+        else:
+            probe_x_index, probe_y_index = nx // 2, ny // 2
+        run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True)
 
 with st.expander("✅ Verifikasi numerik otomatis", expanded=False):
     st.write("Jalankan lima kasus uji untuk memeriksa implementasi numerik dasar dan pencatatan probe transient. Pengujian ini memeriksa implementasi numerik dasar, bukan validasi eksperimen.")
