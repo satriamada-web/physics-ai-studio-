@@ -57,6 +57,19 @@ def run_verification_suite():
         "Keterangan": "Temperatur seragam harus tetap 50 °C",
     })
 
+    # Kasus 3: probe harus merekam setiap langkah dan mengikuti medan seragam.
+    probe_error = float(np.max(np.abs(np.asarray(transient["probe_temperatures"]) - 50.0)))
+    probe_length_error = abs(len(transient["probe_times"]) - (transient["steps"] + 1))
+    probe_time_error = abs(transient["probe_times"][-1] - 2.0)
+    probe_error = max(probe_error, float(probe_length_error), probe_time_error)
+    results.append({
+        "Uji": "Riwayat temperatur titik pemantauan",
+        "Error maksimum": probe_error,
+        "Toleransi": 1e-8,
+        "Status": "LULUS" if probe_error <= 1e-8 else "GAGAL",
+        "Keterangan": "Probe merekam kondisi awal dan setiap langkah hingga waktu akhir",
+    })
+
     # Kasus 3: medan temperatur linear -> gradien dan fluks Fourier eksak.
     nx, ny = 31, 21
     lx, ly, conductivity = 0.3, 0.2, 10.0
