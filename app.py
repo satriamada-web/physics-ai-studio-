@@ -390,14 +390,16 @@ with st.expander("Buka 3D Mesh Engine", expanded=False):
         mesh_lz = number_input_with_unit("Panjang domain Z (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_lz")
     st.caption("Batas aman saat ini: maksimum 200.000 node per grid. Preview hanya menampilkan sampel node agar browser tetap ringan.")
     if st.button("Buat / perbarui structured mesh", key="build_structured_mesh_3d", type="primary"):
-        try:
-            st.session_state["structured_mesh_3d_result"] = create_structured_mesh(
+        if min(mesh_nx, mesh_ny, mesh_nz) < 3:
+            st.error("Solver FDM 3D membutuhkan minimal 3 node pada setiap arah.")
+        else:
+            st.session_state["mesh3d_job_id"] = submit_job(
+                "structured-mesh", create_structured_mesh,
                 int(mesh_nx), int(mesh_ny), int(mesh_nz),
                 float(mesh_lx), float(mesh_ly), float(mesh_lz),
             )
             st.session_state.pop("structured_mesh_3d_error", None)
-        except Exception as exc:
-            st.session_state["structured_mesh_3d_error"] = str(exc)
+    render_job_monitor("mesh3d_job_id", "structured_mesh_3d_result", "Pembuatan mesh 3D")
     if st.session_state.get("structured_mesh_3d_error"):
         st.error(st.session_state["structured_mesh_3d_error"])
     structured_mesh = st.session_state.get("structured_mesh_3d_result")
