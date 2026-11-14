@@ -388,6 +388,13 @@ st.caption("Bangun grid Cartesian node-centred untuk domain balok. Grid ini mema
 with st.expander("Buka 3D Mesh Engine", expanded=False):
     from physics.mesh_3d import create_structured_mesh
 
+    mesh_density_3d = st.selectbox("Kepadatan mesh 3D", ["Coarse / Kasar", "Normal", "Fine / Halus"], index=1, key="mesh_density_3d")
+    mesh3d_defaults = {"Coarse / Kasar": 7, "Normal": 11, "Fine / Halus": 17}
+    if st.session_state.get("_mesh_density_3d_applied") != mesh_density_3d:
+        st.session_state["mesh3d_nx"] = mesh3d_defaults[mesh_density_3d]
+        st.session_state["mesh3d_ny"] = mesh3d_defaults[mesh_density_3d]
+        st.session_state["mesh3d_nz"] = mesh3d_defaults[mesh_density_3d]
+        st.session_state["_mesh_density_3d_applied"] = mesh_density_3d
     mesh_cols = st.columns(3)
     with mesh_cols[0]:
         mesh_nx = slider_with_stepper("Node arah X", 2, 58, step=1, key="mesh3d_nx", value=11)
@@ -495,9 +502,17 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             ["Material & Source", "Boundary Conditions", "Solver Controls"]
         )
         with material_tab3:
+            material3_name = st.selectbox("Preset material 3D", list(MATERIALS.keys()), index=list(MATERIALS.keys()).index("Stainless steel 304"), key="heat3d_material")
+            material3 = MATERIALS[material3_name]
+            if st.session_state.get("_heat3d_material_applied") != material3_name:
+                st.session_state["heat3d_k"] = float(material3["k"])
+                st.session_state["heat3d_rho"] = float(material3["rho"])
+                st.session_state["heat3d_cp"] = float(material3["cp"])
+                st.session_state["_heat3d_material_applied"] = material3_name
+            st.caption(material3["description"] + " · " + material3["reference"])
             mat_cols = st.columns(2)
             with mat_cols[0]:
-                k3 = number_input_with_unit("Konduktivitas k (W/m·K)", min_value=0.01, max_value=2000.0, value=16.2, step=1.0, key="heat3d_k")
+                k3 = number_input_with_unit("Konduktivitas k (W/m·K)", min_value=0.01, max_value=2000.0, step=1.0, key="heat3d_k")
                 rho3 = number_input_with_unit("Massa jenis ρ (kg/m³)", min_value=1.0, max_value=25000.0, value=8000.0, step=100.0, key="heat3d_rho")
             with mat_cols[1]:
                 cp3 = number_input_with_unit("Kalor jenis cp (J/kg·K)", min_value=1.0, max_value=10000.0, value=500.0, step=10.0, key="heat3d_cp")
