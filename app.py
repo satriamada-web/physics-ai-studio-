@@ -11,28 +11,95 @@ st.title("Physics AI Studio")
 st.caption("MVP 0.4 · Evolusi temperatur transient")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
+DEFAULT_SETTINGS = {
+    "mode": "Steady-state", "nx": 41, "ny": 41,
+    "lx": 0.10, "ly": 0.10, "k": 45.0, "rho": 7800.0, "cp": 500.0,
+    "t_left": 100.0, "t_right": 25.0, "t_top": 25.0, "t_bottom": 25.0,
+    "t_initial": 25.0, "q_vol": 0.0, "total_time": 10.0,
+}
+SETTING_KEYS = tuple(DEFAULT_SETTINGS.keys())
+
+def read_settings():
+    return {key: st.session_state[key] for key in SETTING_KEYS}
+
+def record_settings_change():
+    current = read_settings()
+    previous = st.session_state.get("_settings_current", DEFAULT_SETTINGS.copy())
+    if current != previous:
+        history = st.session_state.setdefault("_settings_undo", [])
+        history.append(previous.copy())
+        if len(history) > 50:
+            del history[0]
+        st.session_state["_settings_redo"] = []
+        st.session_state["_settings_current"] = current.copy()
+
+def apply_settings(target):
+    for key, value in target.items():
+        st.session_state[key] = value
+    st.session_state["_settings_current"] = target.copy()
+
+def undo_settings():
+    history = st.session_state.get("_settings_undo", [])
+    if not history:
+        return
+    current = read_settings()
+    target = history.pop()
+    st.session_state.setdefault("_settings_redo", []).append(current.copy())
+    apply_settings(target)
+
+def redo_settings():
+    history = st.session_state.get("_settings_redo", [])
+    if not history:
+        return
+    current = read_settings()
+    target = history.pop()
+    st.session_state.setdefault("_settings_undo", []).append(current.copy())
+    apply_settings(target)
+
+def reset_settings():
+    current = read_settings()
+    if current != DEFAULT_SETTINGS:
+        st.session_state.setdefault("_settings_undo", []).append(current.copy())
+        st.session_state["_settings_redo"] = []
+    apply_settings(DEFAULT_SETTINGS.copy())
+
+for _key, _value in DEFAULT_SETTINGS.items():
+    if _key not in st.session_state:
+        st.session_state[_key] = _value
+if "_settings_current" not in st.session_state:
+    st.session_state["_settings_current"] = read_settings()
+st.session_state.setdefault("_settings_undo", [])
+st.session_state.setdefault("_settings_redo", [])
+
 with st.sidebar:
+    st.header("Pengaturan")
+    h1, h2 = st.columns(2)
+    h1.button("↶ Undo", use_container_width=True, disabled=not st.session_state["_settings_undo"], on_click=undo_settings)
+    h2.button("↷ Redo", use_container_width=True, disabled=not st.session_state["_settings_redo"], on_click=redo_settings)
+    st.button("⟲ Default Settings", use_container_width=True, on_click=reset_settings)
+    st.caption("Undo/Redo menyimpan hingga 50 perubahan parameter.")
+    st.divider()
     st.header("1 · Model fisika")
-    mode = st.selectbox("Jenis simulasi", ["Steady-state", "Transient"])
-    nx = st.slider("Jumlah grid arah X", 11, 101, 41, 2)
-    ny = st.slider("Jumlah grid arah Y", 11, 101, 41, 2)
+    mode = st.selectbox("Jenis simulasi", ["Steady-state", "Transient"], key="mode", on_change=record_settings_change)
+    nx = st.slider("Jumlah grid arah X", 11, 101, 2, key="nx", on_change=record_settings_change)
+    ny = st.slider("Jumlah grid arah Y", 11, 101, 2, key="ny", on_change=record_settings_change)
     st.header("2 · Geometri")
-    lx = st.number_input("Panjang X (m)", 0.01, 2.0, 0.10, 0.01, format="%.3f")
-    ly = st.number_input("Panjang Y (m)", 0.01, 2.0, 0.10, 0.01, format="%.3f")
+    lx = st.number_input("Panjang X (m)", 0.01, 2.0, step=0.01, format="%.3f", key="lx", on_change=record_settings_change)
+    ly = st.number_input("Panjang Y (m)", 0.01, 2.0, step=0.01, format="%.3f", key="ly", on_change=record_settings_change)
     st.header("3 · Sifat material")
-    k = st.number_input("Konduktivitas termal k (W/m·K)", 0.01, 2000.0, 45.0, 1.0)
-    rho = st.number_input("Massa jenis (kg/m³)", 1.0, 25000.0, 7800.0, 100.0)
-    cp = st.number_input("Kalor jenis cp (J/kg·K)", 1.0, 10000.0, 500.0, 10.0)
+    k = st.number_input("Konduktivitas termal k (W/m·K)", 0.01, 2000.0, step=1.0, key="k", on_change=record_settings_change)
+    rho = st.number_input("Massa jenis (kg/m³)", 1.0, 25000.0, step=100.0, key="rho", on_change=record_settings_change)
+    cp = st.number_input("Kalor jenis cp (J/kg·K)", 1.0, 10000.0, step=10.0, key="cp", on_change=record_settings_change)
     st.header("4 · Kondisi batas")
     st.caption("Temperatur pada keempat sisi pelat dianggap tetap.")
-    t_left = st.number_input("Sisi kiri (°C)", value=100.0, step=5.0)
-    t_right = st.number_input("Sisi kanan (°C)", value=25.0, step=5.0)
-    t_top = st.number_input("Sisi atas (°C)", value=25.0, step=5.0)
-    t_bottom = st.number_input("Sisi bawah (°C)", value=25.0, step=5.0)
-    t_initial = st.number_input("Temperatur awal (°C)", value=25.0, step=5.0)
+    t_left = st.number_input("Sisi kiri (°C)", step=5.0, key="t_left", on_change=record_settings_change)
+    t_right = st.number_input("Sisi kanan (°C)", step=5.0, key="t_right", on_change=record_settings_change)
+    t_top = st.number_input("Sisi atas (°C)", step=5.0, key="t_top", on_change=record_settings_change)
+    t_bottom = st.number_input("Sisi bawah (°C)", step=5.0, key="t_bottom", on_change=record_settings_change)
+    t_initial = st.number_input("Temperatur awal (°C)", step=5.0, key="t_initial", on_change=record_settings_change)
     st.header("5 · Sumber panas")
-    q_vol = st.number_input("Pembangkitan panas volumetrik (W/m³)", 0.0, 1.0e8, 0.0, 1000.0)
-    total_time = st.number_input("Lama simulasi (detik)", 0.01, 10000.0, 10.0, 1.0) if mode == "Transient" else None
+    q_vol = st.number_input("Pembangkitan panas volumetrik (W/m³)", 0.0, 1.0e8, step=1000.0, key="q_vol", on_change=record_settings_change)
+    total_time = st.number_input("Lama simulasi (detik)", 0.01, 10000.0, step=1.0, key="total_time", on_change=record_settings_change) if mode == "Transient" else None
     run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True)
 
 c1, c2, c3, c4 = st.columns(4)
