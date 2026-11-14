@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 0.7
+# Physics AI Studio — MVP 0.8
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -12,7 +12,7 @@ sedangkan perhitungan dijalankan pada server cloud Streamlit.
 - Pemilihan material otomatis mengisi konduktivitas termal, massa jenis, dan kalor jenis; nilai tetap dapat disunting manual.
 - Pengaturan geometri, grid, temperatur awal, kondisi batas, dan sumber panas.
 - Peta temperatur 2D dan grafik profil suhu.
-- Analisis fluks panas berdasarkan Hukum Fourier (q = −k∇T), dengan peta magnitudo dan panah arah aliran.
+- Studi independensi mesh steady-state pada grid 21×21, 31×31, 41×41, dan 51×51; membandingkan temperatur pusat serta fluks maksimum terhadap grid referensi 51×51.\n- Analisis fluks panas berdasarkan Hukum Fourier (q = −k∇T), dengan peta magnitudo dan panah arah aliran.
 - Ringkasan fluks panas maksimum, rata-rata, dan minimum; ekspor data fluks sebagai CSV serta ringkasan pada laporan Markdown/PDF.
 - Kontrol waktu akhir transient agar simulasi berhenti tepat pada durasi target.
 - Hingga 9 snapshot untuk melihat evolusi distribusi temperatur dari awal hingga akhir.
@@ -83,3 +83,11 @@ Referensi data:
 - Aluminium 6061-T6: MatWeb, https://asm.matweb.com/search/SpecificMaterial.asp?bassnum=MA6061T6
 - Tembaga OFE C10100: KME, https://www.kme.com/fileadmin/DOWNLOADCENTER/COPPER%20DIVISON/4_Industrial_Rolled/3_Datasheets/07_2023_C10100_Cu-OFE_e.pdf
 - Stainless steel 304: ASSDA, https://www.assda.asn.au/stainless-steel/properties-and-performance
+
+
+## Studi independensi mesh MVP 0.8
+Studi membandingkan empat resolusi grid pada domain dan parameter fisik yang sama.
+Temperatur pusat dan fluks maksimum dibandingkan terhadap grid 51 × 51 sebagai
+referensi numerik terhalus dalam studi. Grid referensi bukan solusi eksak.
+Semua simulasi harus mencapai kriteria konvergensi solver; perbedaan antar-grid
+tetap perlu dinilai sebelum menyatakan hasil independen terhadap mesh.
