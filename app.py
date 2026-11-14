@@ -174,6 +174,25 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
         calculate_heat_flux_3d, stable_time_step_3d,
     )
 
+    from physics.verification_3d import run_3d_verification_suite
+
+    with st.expander("Verifikasi numerik solver 3D", expanded=False):
+        st.write("Uji kasus analitik dasar untuk steady-state seragam, transient seragam, dan Hukum Fourier pada medan temperatur linear.")
+        if st.button("Jalankan uji verifikasi 3D", key="run_verification_3d"):
+            try:
+                st.session_state["verification_3d_results"] = run_3d_verification_suite()
+                st.session_state.pop("verification_3d_error", None)
+            except Exception as exc:
+                st.session_state["verification_3d_error"] = str(exc)
+        if st.session_state.get("verification_3d_error"):
+            st.error(st.session_state["verification_3d_error"])
+        verification3 = st.session_state.get("verification_3d_results", [])
+        if verification3:
+            passed3 = sum(row["Status"] == "LULUS" for row in verification3)
+            st.metric("Uji 3D lulus", f"{passed3}/{len(verification3)}")
+            st.dataframe(verification3, use_container_width=True, hide_index=True)
+            st.caption("Lulus pada kasus analitik dasar bukan validasi eksperimen dan tidak membuktikan akurasi untuk semua kondisi.")
+
     active_mesh = st.session_state.get("structured_mesh_3d_result")
     if not active_mesh:
         st.warning("Buat structured mesh terlebih dahulu pada bagian 3D Mesh Engine.")
