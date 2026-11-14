@@ -136,7 +136,7 @@ def build_heat_transfer_pdf(data):
 
     story = [
         Paragraph("PHYSICS AI STUDIO", styles["ReportTitle"]),
-        Paragraph("HEAT TRANSFER SIMULATION REPORT · MVP 1.1", styles["SubTitle"]),
+        Paragraph("HEAT TRANSFER SIMULATION REPORT · MVP 1.2", styles["SubTitle"]),
         Paragraph("1. Simulation Overview", styles["Section"]),
         Paragraph(
             f"<b>Simulation mode:</b> {data['mode']}<br/>"
@@ -249,6 +249,27 @@ def build_heat_transfer_pdf(data):
             styles["SmallNote"],
         ),
     ])
+
+    if data.get("transient_diagnostics") is not None:
+        td = data["transient_diagnostics"]
+        story.insert(-1, Paragraph("Transient Stability Diagnostics", styles["Section"]))
+        story.insert(-1, add_table([
+            ["Diagnostic", "Result"],
+            ["Thermal diffusivity", f"{td['thermal_diffusivity']:.5e} m²/s"],
+            ["Actual time step", f"{td['dt_actual']:.5e} s"],
+            ["Explicit stability limit", f"{td['dt_stability_limit']:.5e} s"],
+            ["Fourier number Fo_x", f"{td['fourier_x']:.5f}"],
+            ["Fourier number Fo_y", f"{td['fourier_y']:.5f}"],
+            ["Fo_x + Fo_y", f"{td['fourier_sum']:.5f}"],
+            ["Time-step / critical ratio", f"{td['stability_ratio']:.5f}"],
+            ["Stability check", "PASS" if td["stable"] else "FAIL"],
+        ], [70 * mm, 90 * mm]))
+        story.insert(-1, Paragraph(
+            "For the 2D explicit diffusion scheme, the stability condition is Fo_x + Fo_y ≤ 0.5. "
+            "This diagnostic checks the selected numerical time step; it does not establish "
+            "physical model validity.",
+            styles["SmallNote"],
+        ))
 
     if data.get("residual") is not None:
         story.insert(-1, Paragraph("Additional Diagnostic: Steady-State Equation Residual", styles["Section"]))
