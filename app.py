@@ -3,6 +3,7 @@ import json
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
+from ui.theme import apply_theme
 from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step, calculate_heat_flux, calculate_steady_residual
 from physics.transient_diagnostics import calculate_transient_diagnostics
 from physics.reporting import build_heat_transfer_pdf
@@ -10,30 +11,7 @@ from physics.materials import MATERIALS
 from physics.verification import run_verification_suite
 
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
-st.markdown("""
-<style>
-.block-container{max-width:1120px;padding-top:1.1rem;padding-bottom:2rem;padding-left:1.2rem;padding-right:1.2rem}
-h1{font-size:1.65rem!important;font-weight:650!important;letter-spacing:-.03em}
-h2{font-size:1.18rem!important;font-weight:620!important;letter-spacing:-.02em}
-h3{font-size:1.02rem!important;font-weight:600!important}
-p,li,label,.stMarkdown{font-size:.91rem}
-[data-testid="stCaptionContainer"]{font-size:.78rem;opacity:.78}
-div[data-testid="stMetric"]{background:rgba(128,128,128,.07);padding:8px 10px;border-radius:9px}
-div[data-testid="stMetricLabel"]{font-size:.76rem}
-div[data-testid="stMetricValue"]{font-size:1.25rem}
-div[data-testid="stExpander"]{border:1px solid rgba(128,128,128,.18);border-radius:10px}
-div[data-testid="stExpander"] details summary p{font-size:.92rem;font-weight:600}
-.stButton button,.stDownloadButton button{min-height:2.35rem;font-size:.88rem;border-radius:8px}
-div[data-testid="stNumberInput"] input,div[data-testid="stSelectbox"] div,div[data-testid="stRadio"] label{font-size:.88rem}
-hr{margin:.8rem 0}
-.app-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1px solid rgba(128,128,128,.22);border-radius:9px 9px 0 0;background:rgba(128,128,128,.045)}
-.app-name{font-size:1.05rem;font-weight:750;letter-spacing:.09em}
-.app-subtitle{font-size:.74rem;opacity:.68;margin-top:3px}
-.app-status{font-size:.72rem;font-weight:650;color:#26966b}
-.app-ribbon{padding:8px 14px;border:1px solid rgba(128,128,128,.22);border-top:0;border-radius:0 0 9px 9px;font-size:.72rem;font-weight:600;letter-spacing:.025em;opacity:.82;margin-bottom:12px}
-[data-testid="stSidebar"] [data-testid="stTabs"] button{font-size:.82rem}
-</style>
-""", unsafe_allow_html=True)
+apply_theme()
 st.markdown("""<div class="app-topbar"><div><div class="app-name">PHYSICS AI STUDIO</div><div class="app-subtitle">Multiphysics Simulation Environment · MVP 1.9</div></div><div class="app-status">● READY</div></div><div class="app-ribbon">FILE　 MODEL　 GEOMETRY　 MATERIALS　 PHYSICS　 MESH　 STUDY　 RESULTS</div>""", unsafe_allow_html=True)
 st.caption("3D Heat Transfer · 2D Heat Transfer · Scientific Computing")
 
