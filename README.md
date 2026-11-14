@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 1.1
+# Physics AI Studio — MVP 1.2
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -18,6 +18,7 @@ sedangkan perhitungan dijalankan pada server cloud Streamlit.
 - Studi independensi mesh steady-state pada grid 21×21, 31×31, 41×41, dan 51×51; membandingkan temperatur pusat serta fluks maksimum terhadap grid referensi 51×51.
 - Analisis fluks panas berdasarkan Hukum Fourier (q = −k∇T), dengan peta magnitudo dan panah arah aliran.
 - Ringkasan fluks panas maksimum, rata-rata, dan minimum; ekspor data fluks sebagai CSV serta ringkasan pada laporan Markdown/PDF.
+- Diagnostik stabilitas transient: difusivitas termal, bilangan Fourier arah X/Y, jumlah bilangan Fourier, batas dt kritis, dan rasio langkah waktu terhadap batas stabilitas; hasil ikut dicatat pada PDF.
 - Kontrol waktu akhir transient agar simulasi berhenti tepat pada durasi target.
 - Hingga 9 snapshot untuk melihat evolusi distribusi temperatur dari awal hingga akhir.
 - Pengaturan Default Settings serta Undo/Redo parameter (maksimal 50 langkah).
@@ -108,7 +109,7 @@ ini hanya menunjukkan konsistensi pada kasus sederhana yang diuji; hal itu bukan
 validasi eksperimen dan tidak membuktikan akurasi untuk semua geometri atau kondisi.
 
 
-## Kontrol solver MVP 1.1
+## Kontrol solver MVP 1.2
 
 Pengguna dapat mengatur toleransi perubahan maksimum temperatur antar iterasi Jacobi
 (default 1×10⁻⁶ °C; rentang 1×10⁻¹⁰ hingga 1×10⁻² °C) dan jumlah iterasi maksimum
