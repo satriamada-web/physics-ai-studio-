@@ -215,3 +215,13 @@ grafik temperatur terhadap waktu. Data dapat diunduh sebagai CSV dengan kolom
 
 Pemantauan ini merekam nilai pada node grid, bukan interpolasi kontinu antar-node.
 Indeks X = 0 berada di sisi kiri; indeks Y = 0 berada di sisi bawah domain.
+
+
+## Analisis hasil 3D — MVP 1.7
+
+Panel hasil solver 3D menyediakan:
+- Irisan temperatur yang dapat dipilih pada bidang XY (Z tetap), XZ (Y tetap), atau YZ (X tetap), termasuk pemilihan indeks node.
+- 3D Temperature Probe untuk membaca temperatur pada node grid pilihan dan menampilkan koordinat fisiknya.
+- Lokasi node temperatur minimum dan maksimum pada domain, beserta koordinatnya.
+
+Probe membaca nilai node secara langsung, bukan interpolasi kontinu. Irisan dan lokasi ekstrem berlaku untuk snapshot waktu yang sedang dipilih pada simulasi transient. Fitur ini merupakan post-processing grid Cartesian, bukan analisis geometri arbitrer.
