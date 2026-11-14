@@ -17,6 +17,16 @@ st.markdown("""
 /* Viewport-first workstation layout */
 [data-testid="stSidebar"] { display:none !important; }
 [data-testid="stMainBlockContainer"] { max-width: 100% !important; padding-left: 1.2rem !important; padding-right: 1.2rem !important; padding-bottom: 20vh !important; }
+div[class*="st-key-floating_run_button"] {
+  position:fixed !important; top:86px !important; right:24px !important;
+  z-index:998 !important; width:112px !important;
+}
+div[class*="st-key-floating_run_button"] button {
+  width:100% !important; min-height:40px !important;
+  border-radius:13px !important; background:#38C8F2 !important;
+  color:#10212B !important; font-weight:800 !important;
+  box-shadow:0 8px 24px rgba(0,0,0,.28) !important;
+}
 .floating-tools {
   display:flex; align-items:center; gap:8px; flex-wrap:wrap;
   width:fit-content; max-width:100%; margin: 4px 0 14px auto;
@@ -34,7 +44,7 @@ div[class*="st-key-bottom_sheet"] {
   position:fixed !important; z-index:1000 !important;
   left:50% !important; transform:translateX(-50%) !important;
   bottom:10px !important; width:min(1480px, calc(100vw - 20px)) !important;
-  max-height:25vh !important; overflow-y:auto !important;
+  max-height:25vh !important; overflow-y:auto !important; resize:vertical !important;
   padding:7px 12px 10px !important;
   border:1px solid rgba(125,170,195,.35) !important;
   border-radius:18px !important;
@@ -68,6 +78,8 @@ div[data-testid="stPlotlyChart"] { width:100% !important; }
 """, unsafe_allow_html=True)
 
 st.markdown("""<div class="app-topbar"><div><div class="app-name">PHYSICS AI STUDIO</div><div class="app-subtitle">Multiphysics Simulation Environment · MVP 1.9</div></div><div class="app-status">● READY</div></div><div class="app-ribbon">FILE　 MODEL　 GEOMETRY　 MATERIALS　 PHYSICS　 MESH　 STUDY　 RESULTS</div>""", unsafe_allow_html=True)
+with st.container(key="floating_run_button"):
+    toolbar_run = st.button("▶ RUN 2D", key="toolbar_run_2d", type="primary")
 st.markdown("""
 <div class="floating-tools">
   <div class="tool-brand">PAS <span>WORKSPACE</span></div>
@@ -807,7 +819,7 @@ with st.container(key="bottom_sheet"):
             probe_y_index = st.slider("Indeks titik Y", 0, ny - 1, ny // 2, help="0 = sisi bawah; indeks maksimum = sisi atas.")
         else:
             probe_x_index, probe_y_index = nx // 2, ny // 2
-        run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True)
+        run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True) or toolbar_run
 
 with st.expander("✅ Verifikasi numerik otomatis", expanded=False):
     st.write("Jalankan lima kasus uji untuk memeriksa implementasi numerik dasar dan pencatatan probe transient. Pengujian ini memeriksa implementasi numerik dasar, bukan validasi eksperimen.")
