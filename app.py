@@ -670,7 +670,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             for (_key, _label), _color in zip(_face_keys, _face_colors):
                 _value = float(_bc3.get(_key, 0.0))
                 if _label.endswith("−"):
-                    slice_fig3.add_shape(type="line", x0=slice_x3[0], x1=slice_x3[-1], y0=slice_y3[0], y1=slice_y3[0], line={"color": _color, "width": 4}) if _label[0] in ("Y", "Z") else slice_fig3.add_shape(type="line", x0=slice_x3[0], x1=slice_x3[0], y0=slice_y3[0], y1=slice_y3[-1], line={"color": _color, "width": 4})
+                    slice_fig3.add_shape(type="line", x0=slice_x3[0], x1=slice_x3[-1], y0=slice_y3[0], y1=slice_y3[0], line={"color": _color, "width": 4}) if _label[0] == "Z" else slice_fig3.add_shape(type="line", x0=slice_x3[0], x1=slice_x3[0], y0=slice_y3[0], y1=slice_y3[-1], line={"color": _color, "width": 4})
                 else:
                     slice_fig3.add_shape(type="line", x0=slice_x3[0], x1=slice_x3[-1], y0=slice_y3[-1], y1=slice_y3[-1], line={"color": _color, "width": 4}) if _label[0] in ("Y", "Z") else slice_fig3.add_shape(type="line", x0=slice_x3[-1], x1=slice_x3[-1], y0=slice_y3[0], y1=slice_y3[-1], line={"color": _color, "width": 4})
                 slice_fig3.add_annotation(x=0.02, y=0.98 - 0.07 * _face_colors.index(_color), xref="paper", yref="paper", text=f"{_label}: {_value:g} °C", showarrow=False, xanchor="left", bgcolor="rgba(20,32,45,.88)", bordercolor=_color, borderwidth=1, font={"color": _color, "size": 9})
