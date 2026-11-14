@@ -27,6 +27,7 @@ jobs:
           from physics.heat_transfer_3d import solve_steady_state_3d, solve_transient_3d
           from physics.mesh_3d import create_structured_mesh
           from physics.volume_mesh_3d import create_voxel_volume_mesh
+          from physics.wind_heat_3d import solve_wind_heat_transport
           from physics.worker import submit_job, get_job, cancel_job
 
           b2 = {"left": 25.0, "right": 25.0, "top": 25.0, "bottom": 25.0}
@@ -58,6 +59,16 @@ jobs:
           volume = create_voxel_volume_mesh(cube_vertices, cube_faces, resolution=8)
           assert volume["active_cell_count"] == 512, volume["active_cell_count"]
           assert volume["inside_mask_zyx"].shape == (8, 8, 8)
+
+          wind = solve_wind_heat_transport(
+              volume["inside_mask_zyx"], volume["dx"], volume["dy"], volume["dz"],
+              1.0, 0.0, 0.0, 40.0, 20.0, total_time=0.05, snapshot_count=3,
+          )
+          assert wind["velocity_m_s"][0] > 0.99
+          assert wind["inlet_cell_count"] == 64
+          assert np.isnan(wind["temperature"][~volume["inside_mask_zyx"]]).all()
+          assert np.allclose(wind["temperature"][:, :, 0], 40.0)
+          assert np.nanmax(wind["temperature"]) > 20.0
 
           def cancellable(progress_callback=None, cancel_event=None):
               for i in range(100000):
