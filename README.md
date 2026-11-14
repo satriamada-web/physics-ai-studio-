@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 0.6
+# Physics AI Studio — MVP 0.7
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -12,11 +12,21 @@ sedangkan perhitungan dijalankan pada server cloud Streamlit.
 - Pemilihan material otomatis mengisi konduktivitas termal, massa jenis, dan kalor jenis; nilai tetap dapat disunting manual.
 - Pengaturan geometri, grid, temperatur awal, kondisi batas, dan sumber panas.
 - Peta temperatur 2D dan grafik profil suhu.
+- Analisis fluks panas berdasarkan Hukum Fourier (q = −k∇T), dengan peta magnitudo dan panah arah aliran.
+- Ringkasan fluks panas maksimum, rata-rata, dan minimum; ekspor data fluks sebagai CSV serta ringkasan pada laporan Markdown/PDF.
 - Kontrol waktu akhir transient agar simulasi berhenti tepat pada durasi target.
 - Hingga 9 snapshot untuk melihat evolusi distribusi temperatur dari awal hingga akhir.
 - Pengaturan Default Settings serta Undo/Redo parameter (maksimal 50 langkah).
 - Simpan, terapkan, hapus, ekspor, dan impor preset konfigurasi JSON. Preset aktif disimpan selama sesi; ekspor JSON untuk penggunaan ulang.
 - Ekspor hasil temperatur ke CSV, laporan ke Markdown, dan laporan ilmiah PDF (A4) dengan ringkasan parameter, kondisi batas, grafik distribusi temperatur, profil suhu, hasil numerik, serta batasan model.
+
+## Analisis fluks panas MVP 0.7
+Fluks panas lokal dihitung dari gradien temperatur numerik menggunakan `numpy.gradient`:
+- qx = −k ∂T/∂x
+- qy = −k ∂T/∂y
+- |q| = √(qx² + qy²)
+
+Satuan fluks panas adalah W/m². Besaran ini adalah densitas laju perpindahan panas lokal, bukan laju panas total (W). Estimasi gradien bergantung pada resolusi mesh dan kualitas solusi temperatur.
 
 ## Batasan ilmiah
 Material diasumsikan homogen, isotropik, dan sifatnya konstan. Keempat sisi memakai
