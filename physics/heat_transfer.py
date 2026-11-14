@@ -70,7 +70,8 @@ def stable_time_step(conductivity, density, specific_heat, dx, dy):
 
 
 def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
-                    heat_generation, boundary, initial_temperature, total_time, dt):
+                    heat_generation, boundary, initial_temperature, total_time, dt,
+                    snapshot_count=9):
     """Solver eksplisit 2D dengan langkah waktu yang disesuaikan agar t akhir tepat.
 
     dt yang diterima diperlakukan sebagai batas maksimum langkah waktu.
@@ -99,7 +100,14 @@ def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
     rx, ry = alpha * dt_actual / dx**2, alpha * dt_actual / dy**2
     source = heat_generation / (density * specific_heat)
 
-    for _ in range(steps):
+    snapshot_steps = np.unique(np.linspace(
+        0, steps, num=min(max(2, int(snapshot_count)), steps + 1), dtype=int
+    ))
+    snapshots = [T.copy()]
+    snapshot_times = [0.0]
+    snapshot_lookup = set(snapshot_steps[1:].tolist())
+
+    for step in range(1, steps + 1):
         old = T.copy()
         T[1:-1, 1:-1] = (
             old[1:-1, 1:-1]
@@ -108,9 +116,14 @@ def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
             + dt_actual * source
         )
         _boundary(T, boundary)
+        if step in snapshot_lookup:
+            snapshots.append(T.copy())
+            snapshot_times.append(step * dt_actual)
 
     return {
         "temperature": T,
+        "snapshots": snapshots,
+        "snapshot_times": snapshot_times,
         "steps": steps,
         "dt": dt_actual,
         "simulated_time": steps * dt_actual,
