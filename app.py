@@ -463,12 +463,15 @@ Konduksi panas 2D dengan metode beda hingga. Steady-state menggunakan iterasi Ja
 - Maksimum: {T.max():.4f} °C
 - Rata-rata: {T.mean():.4f} °C
 
-## 7. Analisis fluks panas
+## 7. Diagnostik residual steady-state
+{('- Residual maksimum absolut: ' + format(data['residual']['residual_max_abs'], '.5e') + ' K/m²\\n- Residual RMS: ' + format(data['residual']['residual_rms'], '.5e') + ' K/m²') if data.get('residual') is not None else '- Tidak berlaku untuk mode transient.'}
+
+## 8. Analisis fluks panas
 - Fluks maksimum: {qmag.max():.5g} W/m²
 - Fluks rata-rata: {qmag.mean():.5g} W/m²
 - Fluks minimum: {qmag.min():.5g} W/m²
 
-## 8. Batasan model
+## 9. Batasan model
 Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konveksi, radiasi, dan validasi eksperimen belum dimodelkan.
 """
     try:
