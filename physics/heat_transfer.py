@@ -4,6 +4,7 @@ Asumsi: material homogen dan isotropik, sifat material konstan,
 temperatur tetap pada keempat sisi, tanpa konveksi atau radiasi.
 """
 import numpy as np
+from physics.worker import check_cancel
 
 
 def _validate(nx, ny, lx, ly, k, boundary):
@@ -28,7 +29,7 @@ def _boundary(T, b):
 
 
 def solve_steady_state(nx, ny, lx, ly, conductivity, heat_generation, boundary,
-                       initial_temperature=25.0, tolerance=1e-6, max_iterations=30000, progress_callback=None):
+                       initial_temperature=25.0, tolerance=1e-6, max_iterations=30000, progress_callback=None, cancel_event=None):
     """Persamaan steady-state: Laplacian(T) + q_vol/k = 0; iterasi Jacobi."""
     _validate(nx, ny, lx, ly, conductivity, boundary)
     dx, dy = lx / (nx - 1), ly / (ny - 1)
@@ -40,6 +41,7 @@ def solve_steady_state(nx, ny, lx, ly, conductivity, heat_generation, boundary,
     last_delta = float("inf")
     converged = False
     for iteration in range(1, max_iterations + 1):
+        check_cancel(cancel_event)
         old = T.copy()
         T[1:-1, 1:-1] = (
             (old[1:-1, 2:] + old[1:-1, :-2]) / dx2
@@ -138,6 +140,7 @@ def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
     snapshot_lookup = set(snapshot_steps[1:].tolist())
 
     for step in range(1, steps + 1):
+        check_cancel(cancel_event)
         old = T.copy()
         T[1:-1, 1:-1] = (
             old[1:-1, 1:-1]
