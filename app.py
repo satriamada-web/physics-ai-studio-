@@ -10,7 +10,24 @@ from physics.materials import MATERIALS
 from physics.verification import run_verification_suite
 
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
-st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
+st.markdown("""
+<style>
+.block-container{max-width:1120px;padding-top:1.1rem;padding-bottom:2rem;padding-left:1.2rem;padding-right:1.2rem}
+h1{font-size:1.65rem!important;font-weight:650!important;letter-spacing:-.03em}
+h2{font-size:1.18rem!important;font-weight:620!important;letter-spacing:-.02em}
+h3{font-size:1.02rem!important;font-weight:600!important}
+p,li,label,.stMarkdown{font-size:.91rem}
+[data-testid="stCaptionContainer"]{font-size:.78rem;opacity:.78}
+div[data-testid="stMetric"]{background:rgba(128,128,128,.07);padding:8px 10px;border-radius:9px}
+div[data-testid="stMetricLabel"]{font-size:.76rem}
+div[data-testid="stMetricValue"]{font-size:1.25rem}
+div[data-testid="stExpander"]{border:1px solid rgba(128,128,128,.18);border-radius:10px}
+div[data-testid="stExpander"] details summary p{font-size:.92rem;font-weight:600}
+.stButton button,.stDownloadButton button{min-height:2.35rem;font-size:.88rem;border-radius:8px}
+div[data-testid="stNumberInput"] input,div[data-testid="stSelectbox"] div,div[data-testid="stRadio"] label{font-size:.88rem}
+hr{margin:.8rem 0}
+</style>
+""", unsafe_allow_html=True)
 st.title("Physics AI Studio")
 st.caption("MVP 1.9 · 3D Heat Transfer, post-processing, heat-flux vectors, dan energy balance")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
@@ -18,7 +35,7 @@ st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu
 st.divider()
 st.header("Geometry Builder 3D · MVP 1.4")
 st.caption("Buat dan putar geometri primitif 3D. Preview ini adalah surface mesh untuk visualisasi, belum merupakan mesh volume untuk solver FEM.")
-with st.expander("Buka Geometry Builder 3D", expanded=True):
+with st.expander("Geometry Builder 3D", expanded=False):
     from physics.geometry_3d import create_geometry
 
     shape_col, size_col, resolution_col = st.columns([1, 1.4, 1])
@@ -88,7 +105,7 @@ with st.expander("Buka Geometry Builder 3D", expanded=True):
                 "aspectmode": "data",
                 "camera": {"eye": {"x": 1.6, "y": 1.6, "z": 1.3}},
             },
-            height=560, margin={"l": 0, "r": 0, "t": 50, "b": 0},
+            height=390, margin={"l": 0, "r": 0, "t": 35, "b": 0},
         )
         st.plotly_chart(mesh_fig, use_container_width=True, key="geometry_3d_preview")
         m1, m2, m3 = st.columns(3)
@@ -155,7 +172,7 @@ with st.expander("Buka 3D Mesh Engine", expanded=False):
         grid_fig.update_layout(
             title="Preview node grid Cartesian 3D (sampel)",
             scene={"xaxis_title": "X (m)", "yaxis_title": "Y (m)", "zaxis_title": "Z (m)", "aspectmode": "data"},
-            height=500, margin={"l": 0, "r": 0, "t": 50, "b": 0},
+            height=360, margin={"l": 0, "r": 0, "t": 35, "b": 0},
         )
         st.plotly_chart(grid_fig, use_container_width=True, key="structured_mesh_3d_preview")
         mm1, mm2, mm3, mm4 = st.columns(4)
