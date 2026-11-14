@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 1.2
+# Physics AI Studio — MVP 1.3
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -21,6 +21,7 @@ sedangkan perhitungan dijalankan pada server cloud Streamlit.
 - Diagnostik stabilitas transient: difusivitas termal, bilangan Fourier arah X/Y, jumlah bilangan Fourier, batas dt kritis, dan rasio langkah waktu terhadap batas stabilitas; hasil ikut dicatat pada PDF.
 - Kontrol waktu akhir transient agar simulasi berhenti tepat pada durasi target.
 - Hingga 9 snapshot untuk melihat evolusi distribusi temperatur dari awal hingga akhir.
+- Pemantauan temperatur pada satu titik grid selama seluruh simulasi transient, dengan grafik riwayat waktu dan ekspor CSV.
 - Pengaturan Default Settings serta Undo/Redo parameter (maksimal 50 langkah).
 - Simpan, terapkan, hapus, ekspor, dan impor preset konfigurasi JSON. Preset aktif disimpan selama sesi; ekspor JSON untuk penggunaan ulang.
 - Ekspor hasil temperatur ke CSV, laporan ke Markdown, dan laporan ilmiah PDF (A4) dengan ringkasan parameter, kondisi batas, grafik distribusi temperatur, profil suhu, hasil numerik, serta batasan model.
@@ -128,3 +129,13 @@ Residual menunjukkan konsistensi solusi terhadap persamaan beda hingga pada mesh
 yang digunakan. Nilai residual bukan error eksperimen, bukan jaminan independensi
 mesh, dan tidak boleh dibandingkan antar-mesh tanpa mempertimbangkan skala serta
 ukuran grid. Diagnostik ini tidak ditampilkan untuk mode transient.
+
+
+## Riwayat temperatur titik — MVP 1.3
+Pada mode transient, pengguna dapat memilih indeks titik pemantauan pada arah X dan Y.
+Aplikasi merekam temperatur titik tersebut pada setiap langkah waktu, lalu menampilkan
+grafik temperatur terhadap waktu. Data dapat diunduh sebagai CSV dengan kolom
+`time_s` dan `temperature_C`.
+
+Pemantauan ini merekam nilai pada node grid, bukan interpolasi kontinu antar-node.
+Indeks X = 0 berada di sisi kiri; indeks Y = 0 berada di sisi bawah domain.
