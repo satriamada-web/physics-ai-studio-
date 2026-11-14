@@ -7,7 +7,7 @@ sedangkan perhitungan dijalankan pada server cloud Streamlit.
 ## Fitur
 - Diagnostik residual persamaan steady-state: residual maksimum absolut dan RMS dari persamaan beda hingga pada node interior.
 - Pengaturan solver steady-state: toleransi konvergensi Jacobi dan batas iterasi maksimum dapat diubah, disimpan dalam preset, serta dicatat pada laporan PDF.
-- Panel verifikasi numerik otomatis dengan empat kasus uji: residual steady-state, steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.
+- Panel verifikasi numerik otomatis dengan lima kasus uji: residual steady-state, steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.
 - Konduksi panas 2D pada pelat persegi panjang.
 - Steady-state dengan iterasi Jacobi.
 - Transient dengan skema beda hingga eksplisit.
