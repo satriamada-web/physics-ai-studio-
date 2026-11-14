@@ -130,3 +130,28 @@ def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
         "dx": dx,
         "dy": dy,
     }
+
+def calculate_heat_flux(temperature, conductivity, lx, ly):
+    """Hitung fluks panas konduktif q = -k grad(T) pada grid Cartesian.
+
+    Parameter:
+        temperature: array 2D dengan bentuk (ny, nx), dalam °C atau K
+        conductivity: konduktivitas termal konstan, W/(m·K)
+        lx, ly: panjang domain dalam meter
+
+    Returns:
+        qx, qy, magnitude dalam W/m². Komponen positif mengikuti arah +x dan +y.
+    """
+    T = np.asarray(temperature, dtype=float)
+    if T.ndim != 2 or min(T.shape) < 3:
+        raise ValueError("Field temperatur harus berupa array 2D minimal 3 × 3.")
+    if conductivity <= 0 or lx <= 0 or ly <= 0:
+        raise ValueError("Konduktivitas dan ukuran domain harus positif.")
+    ny, nx = T.shape
+    dx = lx / (nx - 1)
+    dy = ly / (ny - 1)
+    dT_dy, dT_dx = np.gradient(T, dy, dx, edge_order=2)
+    qx = -float(conductivity) * dT_dx
+    qy = -float(conductivity) * dT_dy
+    magnitude = np.hypot(qx, qy)
+    return qx, qy, magnitude
