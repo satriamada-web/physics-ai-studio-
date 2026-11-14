@@ -13,6 +13,8 @@ from physics.verification import run_verification_suite
 from physics.worker import submit_job, get_job, cancel_job
 
 
+st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
+
 @st.fragment(run_every="500ms")
 def render_job_monitor(job_key, result_key, title):
     job_id = st.session_state.get(job_key)
@@ -115,7 +117,6 @@ def slider_with_stepper(label, minimum, maximum, step=1, key=None, value=None, o
     return value
 
 
-st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 apply_theme()
 
 def _set_playing(key, value):
