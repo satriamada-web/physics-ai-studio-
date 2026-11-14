@@ -25,7 +25,13 @@ div[data-testid="stExpander"]{border:1px solid rgba(128,128,128,.18);border-radi
 div[data-testid="stExpander"] details summary p{font-size:.92rem;font-weight:600}
 .stButton button,.stDownloadButton button{min-height:2.35rem;font-size:.88rem;border-radius:8px}
 div[data-testid="stNumberInput"] input,div[data-testid="stSelectbox"] div,div[data-testid="stRadio"] label{font-size:.88rem}
-hr{margin:.8rem 0}\n.app-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1px solid rgba(128,128,128,.22);border-radius:9px 9px 0 0;background:rgba(128,128,128,.045)}\n.app-name{font-size:1.05rem;font-weight:750;letter-spacing:.09em}\n.app-subtitle{font-size:.74rem;opacity:.68;margin-top:3px}\n.app-status{font-size:.72rem;font-weight:650;color:#26966b}\n.app-ribbon{padding:8px 14px;border:1px solid rgba(128,128,128,.22);border-top:0;border-radius:0 0 9px 9px;font-size:.72rem;font-weight:600;letter-spacing:.025em;opacity:.82;margin-bottom:12px}\n[data-testid="stSidebar"] [data-testid="stTabs"] button{font-size:.82rem}
+hr{margin:.8rem 0}
+.app-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1px solid rgba(128,128,128,.22);border-radius:9px 9px 0 0;background:rgba(128,128,128,.045)}
+.app-name{font-size:1.05rem;font-weight:750;letter-spacing:.09em}
+.app-subtitle{font-size:.74rem;opacity:.68;margin-top:3px}
+.app-status{font-size:.72rem;font-weight:650;color:#26966b}
+.app-ribbon{padding:8px 14px;border:1px solid rgba(128,128,128,.22);border-top:0;border-radius:0 0 9px 9px;font-size:.72rem;font-weight:600;letter-spacing:.025em;opacity:.82;margin-bottom:12px}
+[data-testid="stSidebar"] [data-testid="stTabs"] button{font-size:.82rem}
 </style>
 """, unsafe_allow_html=True)
 st.markdown("""<div class="app-topbar"><div><div class="app-name">PHYSICS AI STUDIO</div><div class="app-subtitle">Multiphysics Simulation Environment · MVP 1.9</div></div><div class="app-status">● READY</div></div><div class="app-ribbon">FILE　 MODEL　 GEOMETRY　 MATERIALS　 PHYSICS　 MESH　 STUDY　 RESULTS</div>""", unsafe_allow_html=True)
