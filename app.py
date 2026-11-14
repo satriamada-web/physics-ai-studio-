@@ -48,7 +48,7 @@ def render_job_monitor(job_key, result_key, title):
 
 
 def _run_2d_job(mode, nx, ny, lx, ly, k, rho, cp, q_vol, boundary,
-                initial, total_time, tolerance, max_iterations, probe_x, probe_y,
+                initial, total_time, tolerance, max_iterations, probe_x, probe_y, material_name,
                 progress_callback=None, cancel_event=None):
     if mode == "Steady-state":
         result = solve_steady_state(
@@ -1078,7 +1078,7 @@ if run:
             float(rho), float(cp), float(q_vol), boundary, float(t_initial),
             None if total_time is None else float(total_time),
             float(solver_tolerance), int(solver_max_iterations),
-            int(probe_x_index), int(probe_y_index),
+            int(probe_x_index), int(probe_y_index), str(material_name),
         )
     except (TypeError, ValueError, ZeroDivisionError) as exc:
         st.error(f"Input simulasi tidak valid: {exc}")
