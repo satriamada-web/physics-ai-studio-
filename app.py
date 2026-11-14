@@ -11,7 +11,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.0 · Residual persamaan, verifikasi numerik, studi mesh, dan analisis fluks panas")
+st.caption("MVP 1.1 · Kontrol solver, residual persamaan, verifikasi numerik, studi mesh, dan analisis fluks panas")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
