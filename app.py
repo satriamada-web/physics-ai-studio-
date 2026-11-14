@@ -1083,4 +1083,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 1.8 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 1.9 | 3D Heat Transfer, post-processing, heat-flux vectors, dan energy balance. Solver edukatif; periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
