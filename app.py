@@ -12,7 +12,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.6 · Geometry Builder, Structured 3D Mesh, dan solver Heat Transfer 3D")
+st.caption("MVP 1.7 · 3D Heat Transfer, selectable slices, dan temperature probe")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 st.divider()
@@ -324,17 +324,71 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             else:
                 rcols[3].metric("Langkah waktu", f"{result3['steps']:,}")
                 st.caption(f"dt aktual = {result3['dt_actual']:.4g} s · batas stabilitas = {result3['dt_stability_limit']:.4g} s · jumlah Fourier = {result3['fourier_sum']:.4f}.")
-            midz = viewT3.shape[0] // 2
+            st.subheader("Analisis irisan temperatur 3D")
+            slice_axis3 = st.selectbox(
+                "Bidang irisan", ["Z (XY)", "Y (XZ)", "X (YZ)"],
+                key="heat3d_slice_axis",
+            )
+            if slice_axis3 == "Z (XY)":
+                slice_index3 = st.slider("Indeks irisan Z", 0, viewT3.shape[0] - 1, viewT3.shape[0] // 2, key="heat3d_slice_z")
+                slice_values3 = viewT3[slice_index3, :, :]
+                slice_x3, slice_y3 = active_mesh["x"], active_mesh["y"]
+                axis_labels3 = ("X (m)", "Y (m)")
+                slice_title3 = f"Irisan bidang XY pada Z = {active_mesh['z'][slice_index3]:.5g} m"
+                hover3 = "x=%{x:.4g} m<br>y=%{y:.4g} m<br>T=%{z:.3f} °C<extra></extra>"
+            elif slice_axis3 == "Y (XZ)":
+                slice_index3 = st.slider("Indeks irisan Y", 0, viewT3.shape[1] - 1, viewT3.shape[1] // 2, key="heat3d_slice_y")
+                slice_values3 = viewT3[:, slice_index3, :]
+                slice_x3, slice_y3 = active_mesh["x"], active_mesh["z"]
+                axis_labels3 = ("X (m)", "Z (m)")
+                slice_title3 = f"Irisan bidang XZ pada Y = {active_mesh['y'][slice_index3]:.5g} m"
+                hover3 = "x=%{x:.4g} m<br>z=%{y:.4g} m<br>T=%{z:.3f} °C<extra></extra>"
+            else:
+                slice_index3 = st.slider("Indeks irisan X", 0, viewT3.shape[2] - 1, viewT3.shape[2] // 2, key="heat3d_slice_x")
+                slice_values3 = viewT3[:, :, slice_index3]
+                slice_x3, slice_y3 = active_mesh["y"], active_mesh["z"]
+                axis_labels3 = ("Y (m)", "Z (m)")
+                slice_title3 = f"Irisan bidang YZ pada X = {active_mesh['x'][slice_index3]:.5g} m"
+                hover3 = "y=%{x:.4g} m<br>z=%{y:.4g} m<br>T=%{z:.3f} °C<extra></extra>"
             slice_fig3 = go.Figure(go.Heatmap(
-                z=viewT3[midz, :, :], x=active_mesh["x"], y=active_mesh["y"],
+                z=slice_values3, x=slice_x3, y=slice_y3,
                 colorscale="Inferno", colorbar={"title": "°C"},
-                hovertemplate="x=%{x:.4g} m<br>y=%{y:.4g} m<br>T=%{z:.3f} °C<extra></extra>",
+                hovertemplate=hover3,
             ))
             slice_fig3.update_layout(
-                title=f"Potongan temperatur pada bidang tengah Z (indeks {midz})",
-                xaxis_title="X (m)", yaxis_title="Y (m)", height=470,
+                title=slice_title3, xaxis_title=axis_labels3[0],
+                yaxis_title=axis_labels3[1], height=470,
             )
-            st.plotly_chart(slice_fig3, use_container_width=True, key="heat3d_midplane")
+            st.plotly_chart(slice_fig3, use_container_width=True, key="heat3d_selected_slice")
+
+            st.subheader("3D Temperature Probe")
+            probe_cols3 = st.columns(3)
+            with probe_cols3[0]:
+                probe_ix3 = st.slider("Indeks X", 0, viewT3.shape[2] - 1, viewT3.shape[2] // 2, key="heat3d_probe_x")
+            with probe_cols3[1]:
+                probe_iy3 = st.slider("Indeks Y", 0, viewT3.shape[1] - 1, viewT3.shape[1] // 2, key="heat3d_probe_y")
+            with probe_cols3[2]:
+                probe_iz3 = st.slider("Indeks Z", 0, viewT3.shape[0] - 1, viewT3.shape[0] // 2, key="heat3d_probe_z")
+            probe_temp3 = float(viewT3[probe_iz3, probe_iy3, probe_ix3])
+            st.metric("Temperatur pada titik probe", f"{probe_temp3:.4f} °C")
+            st.caption(
+                f"Node ({probe_ix3}, {probe_iy3}, {probe_iz3}) · "
+                f"x={active_mesh['x'][probe_ix3]:.5g} m · "
+                f"y={active_mesh['y'][probe_iy3]:.5g} m · "
+                f"z={active_mesh['z'][probe_iz3]:.5g} m."
+            )
+
+            min_loc3 = np.unravel_index(int(np.argmin(viewT3)), viewT3.shape)
+            max_loc3 = np.unravel_index(int(np.argmax(viewT3)), viewT3.shape)
+            extrema_cols3 = st.columns(2)
+            extrema_cols3[0].metric("Lokasi T minimum (i,j,k)", f"({min_loc3[2]}, {min_loc3[1]}, {min_loc3[0]})")
+            extrema_cols3[1].metric("Lokasi T maksimum (i,j,k)", f"({max_loc3[2]}, {max_loc3[1]}, {max_loc3[0]})")
+            st.caption(
+                f"T minimum berada pada x={active_mesh['x'][min_loc3[2]]:.5g}, "
+                f"y={active_mesh['y'][min_loc3[1]]:.5g}, z={active_mesh['z'][min_loc3[0]]:.5g} m; "
+                f"T maksimum pada x={active_mesh['x'][max_loc3[2]]:.5g}, "
+                f"y={active_mesh['y'][max_loc3[1]]:.5g}, z={active_mesh['z'][max_loc3[0]]:.5g} m."
+            )
             zc, yc, xc = np.meshgrid(active_mesh["z"], active_mesh["y"], active_mesh["x"], indexing="ij")
             volume_fig3 = go.Figure(go.Volume(
                 x=xc.ravel(), y=yc.ravel(), z=zc.ravel(), value=viewT3.ravel(),
@@ -913,4 +967,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 1.6 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 1.7 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
