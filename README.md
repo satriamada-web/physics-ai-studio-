@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 0.1
+# Physics AI Studio — MVP 0.2
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -10,7 +10,7 @@ sedangkan perhitungan dijalankan pada server cloud Streamlit.
 - Transient dengan skema beda hingga eksplisit.
 - Pengaturan geometri, grid, material, temperatur awal, kondisi batas, dan sumber panas.
 - Peta temperatur 2D dan grafik profil suhu.
-- Ekspor hasil temperatur ke CSV dan laporan ke Markdown.
+- Ekspor hasil temperatur ke CSV, laporan ke Markdown, dan laporan ilmiah PDF (A4) dengan ringkasan parameter, kondisi batas, grafik distribusi temperatur, profil suhu, hasil numerik, serta batasan model.
 
 ## Batasan ilmiah
 Material diasumsikan homogen, isotropik, dan sifatnya konstan. Keempat sisi memakai
