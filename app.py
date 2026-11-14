@@ -12,7 +12,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.8 · 3D Heat Transfer, temperature probe, dan heat-flux vectors")
+st.caption("MVP 1.9 · 3D Heat Transfer, post-processing, heat-flux vectors, dan energy balance")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 st.divider()
@@ -175,6 +175,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
     )
 
     from physics.verification_3d import run_3d_verification_suite
+    from physics.energy_analysis_3d import analyze_energy_balance_3d
 
     with st.expander("Verifikasi numerik solver 3D", expanded=False):
         st.write("Uji kasus analitik dasar untuk steady-state seragam, transient seragam, dan Hukum Fourier pada medan temperatur linear.")
@@ -286,6 +287,11 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                         "lx": active_mesh["lx"], "ly": active_mesh["ly"], "lz": active_mesh["lz"],
                     }
                     st.session_state["heat3d_result_k"] = float(k3)
+                    st.session_state["heat3d_result_rho"] = float(rho3)
+                    st.session_state["heat3d_result_cp"] = float(cp3)
+                    st.session_state["heat3d_result_q"] = float(q3)
+                    st.session_state["heat3d_result_initial"] = float(initial3)
+                    st.session_state["heat3d_result_boundary"] = boundary3.copy()
                     st.session_state.pop("heat3d_error", None)
             except Exception as exc:
                 st.session_state["heat3d_error"] = str(exc)
@@ -456,6 +462,60 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                 )
             else:
                 st.info("Fluks panas pada seluruh titik sampel mendekati nol; tidak ada vektor yang perlu ditampilkan.")
+
+            st.subheader("Analisis energi & neraca energi 3D · MVP 1.9")
+            st.caption(
+                "Estimasi energi internal, daya sumber panas, dan panas yang keluar melalui "
+                "enam permukaan. Integrasi memakai bobot control-volume/trapesium pada grid."
+            )
+            try:
+                energy_args3 = (
+                    viewT3, st.session_state.get("heat3d_result_k", float(k3)),
+                    st.session_state.get("heat3d_result_rho", float(rho3)),
+                    st.session_state.get("heat3d_result_cp", float(cp3)),
+                    st.session_state.get("heat3d_result_q", float(q3)),
+                    active_mesh["dx"], active_mesh["dy"], active_mesh["dz"],
+                    st.session_state.get("heat3d_result_initial", float(initial3)),
+                    st.session_state.get("heat3d_result_boundary", boundary3),
+                )
+                if result3["mode"] == "Transient":
+                    energy3 = analyze_energy_balance_3d(
+                        *energy_args3, snapshots=result3.get("snapshots"),
+                        snapshot_times=result3.get("snapshot_times"),
+                    )
+                else:
+                    energy3 = analyze_energy_balance_3d(*energy_args3)
+                if energy3["mode"] == "Transient":
+                    ecols3 = st.columns(4)
+                    ecols3[0].metric("Perubahan energi internal", f"{energy3['delta_internal_energy_J']:.5g} J")
+                    ecols3[1].metric("Energi dari sumber", f"{energy3['generated_energy_J']:.5g} J")
+                    ecols3[2].metric("Energi keluar batas", f"{energy3['outward_energy_J']:.5g} J")
+                    ecols3[3].metric("Error neraca relatif", f"{energy3['relative_balance_error_pct']:.3g}%")
+                    st.caption(
+                        f"Residu ΔU − (E sumber − E keluar) = {energy3['balance_residual_J']:.5g} J · "
+                        f"Daya keluar pada snapshot terpilih = {energy3['final_outward_power_W']:.5g} W."
+                    )
+                else:
+                    ecols3 = st.columns(4)
+                    ecols3[0].metric("Volume domain", f"{energy3['volume_m3']:.5g} m³")
+                    ecols3[1].metric("Daya sumber panas", f"{energy3['source_power_W']:.5g} W")
+                    ecols3[2].metric("Daya keluar batas", f"{energy3['outward_power_W']:.5g} W")
+                    ecols3[3].metric("Error neraca relatif", f"{energy3['relative_balance_error_pct']:.3g}%")
+                    st.caption(f"Residu daya (sumber − keluar) = {energy3['balance_residual_W']:.5g} W.")
+                st.dataframe(
+                    [{"Permukaan": face, "Daya keluar (W)": value}
+                     for face, value in energy3["face_power_W"].items()],
+                    use_container_width=True, hide_index=True,
+                )
+                st.info(
+                    "Catatan numerik: ini adalah estimasi post-processing dari gradien batas "
+                    "dan integrasi berbobot pada grid node-centred. Solver saat ini memakai "
+                    "finite difference Jacobi/eksplisit, bukan formulasi finite-volume yang "
+                    "menjamin konservasi lokal; residu neraca dipakai sebagai indikator, "
+                    "bukan bukti validasi atau akurasi eksperimen."
+                )
+            except Exception as energy_exc3:
+                st.warning("Analisis energi belum dapat dihitung: " + str(energy_exc3))
 
             flux_csv3 = io.StringIO()
             flux_csv3.write("x_m,y_m,z_m,temperature_C,qx_W_m2,qy_W_m2,qz_W_m2,q_magnitude_W_m2\n")
