@@ -1,0 +1,67 @@
+name: Solver smoke tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "physics/**"
+      - ".github/workflows/solver-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  solver-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install numerical dependency
+        run: python -m pip install "numpy>=1.26,<3.0"
+      - name: Verify 2D, 3D, mesh, and worker behavior
+        run: |
+          python - <<'PY'
+          import time
+          import numpy as np
+          from physics.heat_transfer import solve_steady_state, solve_transient
+          from physics.heat_transfer_3d import solve_steady_state_3d, solve_transient_3d
+          from physics.mesh_3d import create_structured_mesh
+          from physics.worker import submit_job, get_job, cancel_job
+
+          b2 = {"left": 25.0, "right": 25.0, "top": 25.0, "bottom": 25.0}
+          s2 = solve_steady_state(5, 5, 1.0, 1.0, 10.0, 0.0, b2)
+          assert np.allclose(s2["temperature"], 25.0)
+          t2 = solve_transient(5, 5, 1.0, 1.0, 10.0, 1000.0, 500.0, 0.0,
+                               b2, 25.0, 0.01, 0.001)
+          assert np.allclose(t2["temperature"], 25.0)
+
+          b3 = {k: 25.0 for k in ("x_min", "x_max", "y_min", "y_max", "z_min", "z_max")}
+          s3 = solve_steady_state_3d(3, 3, 3, 1.0, 1.0, 1.0, 10.0, 0.0, b3)
+          assert np.allclose(s3["temperature"], 25.0)
+          t3 = solve_transient_3d(3, 3, 3, 1.0, 1.0, 1.0, 10.0, 1000.0, 500.0,
+                                  0.0, b3, 25.0, 0.01, 0.001)
+          assert np.allclose(t3["temperature"], 25.0)
+
+          mesh = create_structured_mesh(3, 4, 5, 1.0, 2.0, 3.0)
+          assert mesh["shape_zyx"] == (5, 4, 3)
+
+          def cancellable(progress_callback=None, cancel_event=None):
+              for i in range(100000):
+                  if cancel_event.is_set():
+                      from physics.worker import SolverCancelled
+                      raise SolverCancelled("cancelled")
+                  if progress_callback and i % 100 == 0:
+                      progress_callback(i, 100000, None)
+                  time.sleep(0.0001)
+              return True
+
+          job_id = submit_job("cancel-smoke", cancellable)
+          cancel_job(job_id)
+          for _ in range(100):
+              job = get_job(job_id)
+              if job["status"] in ("cancelled", "completed", "failed"):
+                  break
+              time.sleep(0.02)
+          assert job["status"] == "cancelled", job
+          print("2D/3D solver, structured mesh, and worker cancellation: PASS")
+          PY
