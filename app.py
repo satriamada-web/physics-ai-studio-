@@ -10,6 +10,60 @@ from physics.transient_diagnostics import calculate_transient_diagnostics
 from physics.reporting import build_heat_transfer_pdf
 from physics.materials import MATERIALS
 from physics.verification import run_verification_suite
+from physics.worker import submit_job, get_job, cancel_job
+
+
+@st.fragment(run_every="500ms")
+def render_job_monitor(job_key, result_key, title):
+    job_id = st.session_state.get(job_key)
+    if not job_id:
+        return
+    job = get_job(job_id)
+    if job is None:
+        st.error("Status pekerjaan tidak ditemukan. Silakan jalankan ulang simulasi.")
+        return
+    st.markdown("**" + title + "**")
+    st.progress(job["progress"], text=job["message"])
+    if job["metric"] is not None:
+        st.caption(f"Iterasi/langkah {job['current']:,}/{job['total']:,} · metrik perubahan {job['metric']:.3e}")
+    elif job["total"]:
+        st.caption(f"Progres: {job['current']:,}/{job['total']:,}")
+    if job["status"] in ("queued", "running"):
+        if st.button("■ Cancel Solver", key=f"cancel_{job_id}", type="secondary"):
+            cancel_job(job_id)
+            st.warning("Permintaan pembatalan dikirim. Solver berhenti pada checkpoint berikutnya.")
+    elif job["status"] == "completed":
+        st.session_state[result_key] = job["result"]
+        st.session_state.pop(job_key, None)
+        st.success("Pekerjaan selesai. Hasil siap ditampilkan.")
+        st.rerun()
+    elif job["status"] == "cancelled":
+        st.session_state.pop(job_key, None)
+        st.warning(job["message"] or "Simulasi dibatalkan.")
+    elif job["status"] == "failed":
+        st.session_state.pop(job_key, None)
+        st.error(job["error"] or "Simulasi gagal.")
+
+
+def _run_2d_job(mode, nx, ny, lx, ly, k, rho, cp, q_vol, boundary,
+                initial, total_time, tolerance, max_iterations, probe_x, probe_y,
+                progress_callback=None, cancel_event=None):
+    if mode == "Steady-state":
+        result = solve_steady_state(
+            nx, ny, lx, ly, k, q_vol, boundary, initial,
+            tolerance=tolerance, max_iterations=max_iterations,
+            progress_callback=progress_callback, cancel_event=cancel_event,
+        )
+        residual = calculate_steady_residual(result["temperature"], k, lx, ly, q_vol)
+        return {"result": result, "residual": residual, "transient_diagnostics": None}
+    dt_limit = 0.9 * stable_time_step(k, rho, cp, lx/(nx-1), ly/(ny-1))
+    result = solve_transient(
+        nx, ny, lx, ly, k, rho, cp, q_vol, boundary, initial,
+        total_time, dt_limit, probe_x=probe_x, probe_y=probe_y,
+        progress_callback=progress_callback, cancel_event=cancel_event,
+    )
+    diagnostics = calculate_transient_diagnostics(k, rho, cp, lx, ly, nx, ny, result["dt"])
+    return {"result": result, "residual": None, "transient_diagnostics": diagnostics}
 
 
 def number_input_with_unit(label, *args, **kwargs):
