@@ -215,6 +215,12 @@ with st.sidebar:
     st.header("5 · Sumber panas")
     q_vol = st.number_input("Pembangkitan panas volumetrik (W/m³)", 0.0, 1.0e8, step=1000.0, key="q_vol", on_change=record_settings_change)
     total_time = st.number_input("Lama simulasi (detik)", 0.01, 10000.0, step=1.0, key="total_time", on_change=record_settings_change) if mode == "Transient" else None
+    if mode == "Transient":
+        st.subheader("Titik pemantauan temperatur")
+        probe_x_index = st.slider("Indeks titik X", 0, nx - 1, nx // 2, help="0 = sisi kiri; indeks maksimum = sisi kanan.")
+        probe_y_index = st.slider("Indeks titik Y", 0, ny - 1, ny // 2, help="0 = sisi bawah; indeks maksimum = sisi atas.")
+    else:
+        probe_x_index, probe_y_index = nx // 2, ny // 2
     run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True)
 
 with st.expander("✅ Verifikasi numerik otomatis", expanded=False):
@@ -260,13 +266,20 @@ if run:
                 if steps_required > 20000:
                     st.error(f"Simulasi membutuhkan {steps_required:,} langkah (batas MVP 20.000). Kurangi waktu simulasi atau jumlah grid.")
                     st.stop()
-                result = solve_transient(nx, ny, lx, ly, k, rho, cp, q_vol, boundary, t_initial, total_time, dt_limit)
+                result = solve_transient(
+                    nx, ny, lx, ly, k, rho, cp, q_vol, boundary, t_initial,
+                    total_time, dt_limit, probe_x=probe_x_index, probe_y=probe_y_index
+                )
                 transient_diagnostics = calculate_transient_diagnostics(k, rho, cp, lx, ly, nx, ny, result["dt"])
                 info = f"Transient · {result['steps']:,} langkah · waktu akhir: {result['simulated_time']:.6g} s"
                 extra = f"dt aktual = {result['dt']:.3e} s · batas stabilitas = {transient_diagnostics['dt_stability_limit']:.3e} s · rasio stabilitas = {transient_diagnostics['stability_ratio']:.3f}"
         st.session_state["last_result"] = {
             "T": result["temperature"], "x": np.linspace(0, lx, nx), "y": np.linspace(0, ly, ny),
             "snapshots": result.get("snapshots", []), "snapshot_times": result.get("snapshot_times", []),
+            "probe_times": result.get("probe_times", []),
+            "probe_temperatures": result.get("probe_temperatures", []),
+            "probe_x": result.get("probe_x", probe_x_index),
+            "probe_y": result.get("probe_y", probe_y_index),
             "mode": mode, "info": info, "extra": extra,
             "p": {"nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol,
                   "boundary": boundary, "initial": t_initial, "total_time": total_time,
@@ -363,6 +376,32 @@ else:
     )
     st.plotly_chart(heat_flux_fig, use_container_width=True)
     st.caption("Komponen fluks: qx = −k·∂T/∂x dan qy = −k·∂T/∂y. Estimasi gradien memakai beda hingga numerik.")
+
+    if data["mode"] == "Transient" and data.get("probe_temperatures"):
+        probe_x_value = float(x[data["probe_x"]])
+        probe_y_value = float(y[data["probe_y"]])
+        st.subheader("Riwayat temperatur titik pemantauan")
+        st.caption(f"Titik grid ({data['probe_x']}, {data['probe_y']}) · posisi x = {probe_x_value:.4f} m, y = {probe_y_value:.4f} m.")
+        probe_fig = go.Figure(go.Scatter(
+            x=data["probe_times"], y=data["probe_temperatures"],
+            mode="lines", name="Temperatur titik",
+            hovertemplate="t = %{x:.5g} s<br>T = %{y:.4f} °C<extra></extra>",
+        ))
+        probe_fig.update_layout(
+            title="Perubahan temperatur lokal selama simulasi",
+            xaxis_title="Waktu (s)", yaxis_title="Temperatur (°C)", height=380,
+        )
+        st.plotly_chart(probe_fig, use_container_width=True)
+        probe_csv = io.StringIO()
+        probe_csv.write("time_s,temperature_C\\n")
+        for time_value, temp_value in zip(data["probe_times"], data["probe_temperatures"]):
+            probe_csv.write(f"{time_value:.10g},{temp_value:.10g}\\n")
+        st.download_button(
+            "⬇ Unduh riwayat temperatur titik (CSV)",
+            probe_csv.getvalue().encode("utf-8"),
+            file_name="physics_ai_temperature_probe.csv",
+            mime="text/csv",
+        )
 
     if data["mode"] == "Transient" and data.get("snapshots"):
         st.subheader("Evolusi temperatur terhadap waktu")
