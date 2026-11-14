@@ -12,7 +12,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.5 · Geometry Builder dan Structured 3D Mesh, solver Heat Transfer 2D, dan fondasi solver 3D eksperimental")
+st.caption("MVP 1.6 · Geometry Builder, Structured 3D Mesh, dan solver Heat Transfer 3D")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 st.divider()
@@ -164,6 +164,188 @@ with st.expander("Buka 3D Mesh Engine", expanded=False):
         mm3.metric("Bentuk array (z,y,x)", str(structured_mesh["shape_zyx"]))
         mm4.metric("Ukuran langkah dx/dy/dz", f"{structured_mesh['dx']:.4g} / {structured_mesh['dy']:.4g} / {structured_mesh['dz']:.4g} m")
         st.info("Grid ini merupakan node-centred Cartesian structured grid untuk metode beda hingga. Cell count menunjukkan jumlah blok antar-node; belum ada konektivitas elemen FEM atau mesh tetrahedral. Integrasi langsung ke antarmuka solver 3D menjadi tahap berikutnya.")
+
+st.divider()
+st.header("3D Heat Transfer Solver · MVP 1.6")
+st.caption("Jalankan solver konduksi panas 3D pada structured mesh yang dibuat di atas. Model memakai material homogen-isotropik, properti konstan, sumber panas seragam, dan temperatur tetap pada enam sisi.")
+with st.expander("Buka solver Heat Transfer 3D", expanded=False):
+    from physics.heat_transfer_3d import (
+        solve_steady_state_3d, solve_transient_3d,
+        calculate_heat_flux_3d, stable_time_step_3d,
+    )
+
+    active_mesh = st.session_state.get("structured_mesh_3d_result")
+    if not active_mesh:
+        st.warning("Buat structured mesh terlebih dahulu pada bagian 3D Mesh Engine.")
+    else:
+        st.write(
+            f"Mesh aktif: **{active_mesh['nx']} × {active_mesh['ny']} × {active_mesh['nz']}** "
+            f"node · total **{active_mesh['node_count']:,}** node · "
+            f"domain {active_mesh['lx']:.4g} × {active_mesh['ly']:.4g} × {active_mesh['lz']:.4g} m."
+        )
+        if active_mesh["node_count"] > 30000:
+            st.warning("Untuk menjaga server cloud tetap responsif, solver MVP 1.6 dibatasi hingga 30.000 node. Kurangi resolusi mesh sebelum menjalankan simulasi.")
+            solver_allowed = False
+        else:
+            solver_allowed = True
+
+        solver_mode_3d = st.radio(
+            "Mode simulasi 3D", ["Steady-state", "Transient"],
+            horizontal=True, key="heat3d_mode",
+        )
+        mat_cols = st.columns(4)
+        with mat_cols[0]:
+            k3 = st.number_input("Konduktivitas k (W/m·K)", min_value=0.01, max_value=2000.0, value=16.2, step=1.0, key="heat3d_k")
+        with mat_cols[1]:
+            rho3 = st.number_input("Massa jenis ρ (kg/m³)", min_value=1.0, max_value=25000.0, value=8000.0, step=100.0, key="heat3d_rho")
+        with mat_cols[2]:
+            cp3 = st.number_input("Kalor jenis cp (J/kg·K)", min_value=1.0, max_value=10000.0, value=500.0, step=10.0, key="heat3d_cp")
+        with mat_cols[3]:
+            q3 = st.number_input("Sumber panas (W/m³)", min_value=0.0, max_value=1.0e8, value=0.0, step=1000.0, key="heat3d_q")
+        st.markdown("**Kondisi batas temperatur — enam sisi domain**")
+        bc_cols = st.columns(3)
+        with bc_cols[0]:
+            bxmin = st.number_input("X minimum (°C)", value=100.0, step=5.0, key="heat3d_bxmin")
+            bxmax = st.number_input("X maksimum (°C)", value=25.0, step=5.0, key="heat3d_bxmax")
+        with bc_cols[1]:
+            bymin = st.number_input("Y minimum (°C)", value=25.0, step=5.0, key="heat3d_bymin")
+            bymax = st.number_input("Y maksimum (°C)", value=25.0, step=5.0, key="heat3d_bymax")
+        with bc_cols[2]:
+            bzmin = st.number_input("Z minimum (°C)", value=25.0, step=5.0, key="heat3d_bzmin")
+            bzmax = st.number_input("Z maksimum (°C)", value=25.0, step=5.0, key="heat3d_bzmax")
+        initial3 = st.number_input("Temperatur awal domain (°C)", value=25.0, step=5.0, key="heat3d_initial")
+        if solver_mode_3d == "Steady-state":
+            tol3 = st.select_slider(
+                "Toleransi perubahan maksimum (°C)",
+                options=[1e-4, 1e-5, 1e-6, 1e-7], value=1e-5,
+                format_func=lambda v: f"{v:.0e}", key="heat3d_tolerance",
+            )
+            iter3 = st.number_input("Iterasi maksimum", min_value=100, max_value=10000, value=3000, step=100, key="heat3d_iterations")
+            total3 = None
+            maxdt3 = None
+        else:
+            total3 = st.number_input("Durasi simulasi (detik)", min_value=0.001, max_value=100.0, value=0.1, step=0.01, format="%.4f", key="heat3d_total_time")
+            maxdt3 = st.number_input("Batas langkah waktu maksimum (detik)", min_value=1e-8, max_value=1.0, value=0.001, format="%.6g", key="heat3d_max_dt")
+            tol3 = None
+            iter3 = None
+
+        boundary3 = {
+            "x_min": float(bxmin), "x_max": float(bxmax),
+            "y_min": float(bymin), "y_max": float(bymax),
+            "z_min": float(bzmin), "z_max": float(bzmax),
+        }
+        if solver_mode_3d == "Transient":
+            stable_dt3 = stable_time_step_3d(
+                float(k3), float(rho3), float(cp3),
+                active_mesh["dx"], active_mesh["dy"], active_mesh["dz"],
+            )
+            st.caption(f"Batas stabilitas eksplisit untuk mesh dan material ini: dt ≤ {stable_dt3:.5g} s. Solver otomatis memilih langkah waktu aman berdasarkan batas tersebut dan input maksimum di atas.")
+        if st.button("▶ Jalankan simulasi Heat Transfer 3D", key="run_heat3d", type="primary", disabled=not solver_allowed):
+            try:
+                with st.spinner("Menghitung medan temperatur 3D..."):
+                    if solver_mode_3d == "Steady-state":
+                        result3 = solve_steady_state_3d(
+                            active_mesh["nx"], active_mesh["ny"], active_mesh["nz"],
+                            active_mesh["lx"], active_mesh["ly"], active_mesh["lz"],
+                            float(k3), float(q3), boundary3,
+                            initial_temperature=float(initial3),
+                            tolerance=float(tol3), max_iterations=int(iter3),
+                        )
+                        result3["mode"] = "Steady-state"
+                    else:
+                        result3 = solve_transient_3d(
+                            active_mesh["nx"], active_mesh["ny"], active_mesh["nz"],
+                            active_mesh["lx"], active_mesh["ly"], active_mesh["lz"],
+                            float(k3), float(rho3), float(cp3), float(q3), boundary3,
+                            float(initial3), float(total3), float(maxdt3),
+                            snapshot_count=9,
+                        )
+                        result3["mode"] = "Transient"
+                    st.session_state["heat3d_result"] = result3
+                    st.session_state["heat3d_result_mesh"] = {
+                        "nx": active_mesh["nx"], "ny": active_mesh["ny"], "nz": active_mesh["nz"],
+                        "lx": active_mesh["lx"], "ly": active_mesh["ly"], "lz": active_mesh["lz"],
+                    }
+                    st.session_state["heat3d_result_k"] = float(k3)
+                    st.session_state.pop("heat3d_error", None)
+            except Exception as exc:
+                st.session_state["heat3d_error"] = str(exc)
+        if st.session_state.get("heat3d_error"):
+            st.error("Simulasi 3D gagal: " + st.session_state["heat3d_error"])
+
+        result3 = st.session_state.get("heat3d_result")
+        result_mesh3 = st.session_state.get("heat3d_result_mesh")
+        if result3 and result_mesh3 == {
+            "nx": active_mesh["nx"], "ny": active_mesh["ny"], "nz": active_mesh["nz"],
+            "lx": active_mesh["lx"], "ly": active_mesh["ly"], "lz": active_mesh["lz"],
+        }:
+            T3 = result3["temperature"]
+            if result3["mode"] == "Transient" and result3.get("snapshots"):
+                snap3 = st.slider(
+                    "Snapshot waktu (indeks)", min_value=0,
+                    max_value=len(result3["snapshots"]) - 1, value=len(result3["snapshots"]) - 1,
+                    key="heat3d_snapshot_index",
+                )
+                viewT3 = result3["snapshots"][snap3]
+                viewtime3 = result3["snapshot_times"][snap3]
+                st.caption(f"Snapshot pada t = {viewtime3:.5g} s dari total {result3['simulated_time']:.5g} s.")
+            else:
+                viewT3 = T3
+            qx3, qy3, qz3, qmag3 = calculate_heat_flux_3d(
+                viewT3, st.session_state.get("heat3d_result_k", float(k3)),
+                active_mesh["dx"], active_mesh["dy"], active_mesh["dz"],
+            )
+            rcols = st.columns(4)
+            rcols[0].metric("Temperatur minimum", f"{viewT3.min():.3f} °C")
+            rcols[1].metric("Temperatur maksimum", f"{viewT3.max():.3f} °C")
+            rcols[2].metric("Fluks panas maksimum", f"{qmag3.max():.4g} W/m²")
+            if result3["mode"] == "Steady-state":
+                rcols[3].metric("Iterasi", f"{result3['iterations']:,}")
+                st.caption(f"Status konvergensi: {'Tercapai' if result3['converged'] else 'Belum tercapai'} · perubahan terakhir {result3['last_delta']:.3e} °C.")
+            else:
+                rcols[3].metric("Langkah waktu", f"{result3['steps']:,}")
+                st.caption(f"dt aktual = {result3['dt_actual']:.4g} s · batas stabilitas = {result3['dt_stability_limit']:.4g} s · jumlah Fourier = {result3['fourier_sum']:.4f}.")
+            midz = viewT3.shape[0] // 2
+            slice_fig3 = go.Figure(go.Heatmap(
+                z=viewT3[midz, :, :], x=active_mesh["x"], y=active_mesh["y"],
+                colorscale="Inferno", colorbar={"title": "°C"},
+                hovertemplate="x=%{x:.4g} m<br>y=%{y:.4g} m<br>T=%{z:.3f} °C<extra></extra>",
+            ))
+            slice_fig3.update_layout(
+                title=f"Potongan temperatur pada bidang tengah Z (indeks {midz})",
+                xaxis_title="X (m)", yaxis_title="Y (m)", height=470,
+            )
+            st.plotly_chart(slice_fig3, use_container_width=True, key="heat3d_midplane")
+            zc, yc, xc = np.meshgrid(active_mesh["z"], active_mesh["y"], active_mesh["x"], indexing="ij")
+            volume_fig3 = go.Figure(go.Volume(
+                x=xc.ravel(), y=yc.ravel(), z=zc.ravel(), value=viewT3.ravel(),
+                isomin=float(viewT3.min()), isomax=float(viewT3.max()),
+                opacity=0.12, surface_count=12, colorscale="Inferno",
+                colorbar={"title": "°C"},
+            ))
+            volume_fig3.update_layout(
+                title="Visualisasi volume temperatur 3D",
+                scene={"xaxis_title": "X (m)", "yaxis_title": "Y (m)", "zaxis_title": "Z (m)", "aspectmode": "data"},
+                height=560, margin={"l": 0, "r": 0, "t": 50, "b": 0},
+            )
+            st.plotly_chart(volume_fig3, use_container_width=True, key="heat3d_volume")
+            flux_csv3 = io.StringIO()
+            flux_csv3.write("x_m,y_m,z_m,temperature_C,qx_W_m2,qy_W_m2,qz_W_m2,q_magnitude_W_m2\n")
+            for iz, zv in enumerate(active_mesh["z"]):
+                for iy, yv in enumerate(active_mesh["y"]):
+                    for ix, xv in enumerate(active_mesh["x"]):
+                        flux_csv3.write(
+                            f"{xv:.8g},{yv:.8g},{zv:.8g},{viewT3[iz,iy,ix]:.8g},"
+                            f"{qx3[iz,iy,ix]:.8g},{qy3[iz,iy,ix]:.8g},"
+                            f"{qz3[iz,iy,ix]:.8g},{qmag3[iz,iy,ix]:.8g}\n"
+                        )
+            st.download_button(
+                "⬇ Unduh hasil temperatur dan fluks 3D (CSV)",
+                flux_csv3.getvalue().encode("utf-8"),
+                file_name="physics_ai_studio_heat_transfer_3d.csv",
+                mime="text/csv",
+            )
+            st.info("Hasil ini berasal dari model konduksi 3D pada balok Cartesian. Kondisi batas tetap diterapkan pada enam bidang; geometri kubus/balok/silinder dari Geometry Builder belum dipakai sebagai domain pemotongan. Belum ada konveksi, radiasi, kontak termal, atau validasi eksperimen.")
 
 DEFAULT_SETTINGS = {
     "mode": "Steady-state", "material_name": "Custom", "nx": 41, "ny": 41,
@@ -712,4 +894,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 1.5 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 1.6 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
