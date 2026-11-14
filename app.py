@@ -496,18 +496,18 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                     result3["mode"] = "Transient"
                     progress3.progress(100, text="Integrasi waktu selesai")
                     progress3_note.caption(f"{result3['steps']:,} langkah selesai · t akhir {result3['simulated_time']:.5g} s")
-                    st.session_state["heat3d_result"] = result3
-                    st.session_state["heat3d_result_mesh"] = {
-                        "nx": active_mesh["nx"], "ny": active_mesh["ny"], "nz": active_mesh["nz"],
-                        "lx": active_mesh["lx"], "ly": active_mesh["ly"], "lz": active_mesh["lz"],
-                    }
-                    st.session_state["heat3d_result_k"] = float(k3)
-                    st.session_state["heat3d_result_rho"] = float(rho3)
-                    st.session_state["heat3d_result_cp"] = float(cp3)
-                    st.session_state["heat3d_result_q"] = float(q3)
-                    st.session_state["heat3d_result_initial"] = float(initial3)
-                    st.session_state["heat3d_result_boundary"] = boundary3.copy()
-                    st.session_state.pop("heat3d_error", None)
+                st.session_state["heat3d_result"] = result3
+                st.session_state["heat3d_result_mesh"] = {
+                    "nx": active_mesh["nx"], "ny": active_mesh["ny"], "nz": active_mesh["nz"],
+                    "lx": active_mesh["lx"], "ly": active_mesh["ly"], "lz": active_mesh["lz"],
+                }
+                st.session_state["heat3d_result_k"] = float(k3)
+                st.session_state["heat3d_result_rho"] = float(rho3)
+                st.session_state["heat3d_result_cp"] = float(cp3)
+                st.session_state["heat3d_result_q"] = float(q3)
+                st.session_state["heat3d_result_initial"] = float(initial3)
+                st.session_state["heat3d_result_boundary"] = boundary3.copy()
+                st.session_state.pop("heat3d_error", None)
             except Exception as exc:
                 st.session_state["heat3d_error"] = str(exc)
         if st.session_state.get("heat3d_error"):
