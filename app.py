@@ -60,6 +60,7 @@ if run:
                 extra = f"dt aktual = {result['dt']:.3e} s · batas stabilitas = {stable_time_step(k, rho, cp, lx/(nx-1), ly/(ny-1)):.3e} s"
         st.session_state["last_result"] = {
             "T": result["temperature"], "x": np.linspace(0, lx, nx), "y": np.linspace(0, ly, ny),
+            "snapshots": result.get("snapshots", []), "snapshot_times": result.get("snapshot_times", []),
             "mode": mode, "info": info, "extra": extra,
             "p": {"nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol,
                   "boundary": boundary, "initial": t_initial, "total_time": total_time}
@@ -94,6 +95,35 @@ else:
         line.update_layout(title=f"Profil suhu pada y = {y[mid]:.4f} m", xaxis_title="Posisi X (m)", yaxis_title="Temperatur (°C)", height=350)
         st.plotly_chart(line, use_container_width=True)
         st.caption("Profil temperatur sepanjang garis tengah pelat.")
+
+    if data["mode"] == "Transient" and data.get("snapshots"):
+        st.subheader("Evolusi temperatur terhadap waktu")
+        st.caption("Geser indeks waktu untuk melihat bagaimana panas menyebar dari kondisi awal hingga akhir.")
+        frame_index = st.slider(
+            "Waktu simulasi (snapshot)",
+            min_value=0,
+            max_value=len(data["snapshots"]) - 1,
+            value=0,
+            format="%d",
+            key="transient_snapshot_index",
+        )
+        frame_T = data["snapshots"][frame_index]
+        frame_time = data["snapshot_times"][frame_index]
+        e1, e2, e3 = st.columns(3)
+        e1.metric("Waktu snapshot", f"{frame_time:.4f} s")
+        e2.metric("Temperatur minimum", f"{frame_T.min():.2f} °C")
+        e3.metric("Temperatur maksimum", f"{frame_T.max():.2f} °C")
+        evolution = go.Figure(go.Heatmap(
+            z=frame_T, x=x, y=y, colorscale="Inferno",
+            colorbar={"title": "°C"},
+            zmin=float(data["T"].min()), zmax=float(data["T"].max()),
+            hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>T=%{z:.2f} °C<extra></extra>",
+        ))
+        evolution.update_layout(
+            title=f"Distribusi temperatur pada t = {frame_time:.4f} s",
+            xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)", height=480,
+        )
+        st.plotly_chart(evolution, use_container_width=True)
 
     csv = io.StringIO()
     csv.write("y_m," + ",".join([f"x={v:.6g}_m" for v in x]) + "\n")
