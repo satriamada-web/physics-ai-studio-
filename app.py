@@ -1090,7 +1090,7 @@ else:
         r2.metric("Residual RMS", f"{data['residual']['residual_rms']:.3e} K/m²")
     fig = go.Figure(go.Heatmap(z=T, x=x, y=y, colorscale="Inferno", colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
         hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>T=%{z:.2f} °C<extra></extra>"))
-    fig.update_layout(title="Distribusi temperatur 2D · Viewport", xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)", height=680)
+    fig.update_layout(title="Distribusi temperatur 2D · Viewport", xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)", height=680, margin={"l": 12, "r": 82, "t": 52, "b": 12})
     st.plotly_chart(fig, use_container_width=True)
     with st.expander("Profil temperatur · Detail hasil", expanded=False):
         mid = len(y)//2
@@ -1175,13 +1175,13 @@ else:
         e3.metric("Temperatur maksimum", f"{frame_T.max():.2f} °C")
         evolution = go.Figure(go.Heatmap(
             z=frame_T, x=x, y=y, colorscale="Inferno",
-            colorbar={"title": "°C"},
+            colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
             zmin=float(data["T"].min()), zmax=float(data["T"].max()),
             hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>T=%{z:.2f} °C<extra></extra>",
         ))
         evolution.update_layout(
             title=f"Distribusi temperatur pada t = {frame_time:.4f} s",
-            xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)", height=480,
+            xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)", height=480, margin={"l": 12, "r": 82, "t": 52, "b": 12},
         )
         st.plotly_chart(evolution, use_container_width=True)
 
