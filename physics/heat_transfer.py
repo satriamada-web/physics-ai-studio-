@@ -155,3 +155,31 @@ def calculate_heat_flux(temperature, conductivity, lx, ly):
     qy = -float(conductivity) * dT_dy
     magnitude = np.hypot(qx, qy)
     return qx, qy, magnitude
+
+def calculate_steady_residual(temperature, conductivity, lx, ly, heat_generation=0.0):
+    """Hitung residual diskret persamaan steady-state pada node interior.
+
+    Residual R = d²T/dx² + d²T/dy² + q'''/k, satuan K/m².
+    Nilai mendekati nol menunjukkan persamaan beda hingga dipenuhi.
+    Batas domain tidak dimasukkan karena residual PDE dihitung pada node interior.
+    """
+    T = np.asarray(temperature, dtype=float)
+    if T.ndim != 2 or min(T.shape) < 3:
+        raise ValueError("Field temperatur harus berupa array 2D minimal 3 × 3.")
+    if min(conductivity, lx, ly) <= 0:
+        raise ValueError("Konduktivitas dan ukuran domain harus positif.")
+    if not np.isfinite(T).all() or not np.isfinite(heat_generation):
+        raise ValueError("Temperatur dan pembangkitan panas harus bernilai hingga.")
+    ny, nx = T.shape
+    dx = lx / (nx - 1)
+    dy = ly / (ny - 1)
+    laplacian = (
+        (T[1:-1, 2:] - 2.0 * T[1:-1, 1:-1] + T[1:-1, :-2]) / dx**2
+        + (T[2:, 1:-1] - 2.0 * T[1:-1, 1:-1] + T[:-2, 1:-1]) / dy**2
+    )
+    residual = laplacian + float(heat_generation) / float(conductivity)
+    return {
+        "residual_max_abs": float(np.max(np.abs(residual))),
+        "residual_rms": float(np.sqrt(np.mean(residual**2))),
+        "residual_field": residual,
+    }
