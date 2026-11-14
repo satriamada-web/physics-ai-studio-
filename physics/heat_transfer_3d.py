@@ -5,11 +5,14 @@ seragam, dan temperatur Dirichlet pada keenam sisi balok.
 Array temperatur memakai urutan (z, y, x).
 """
 import numpy as np
+from physics.worker import check_cancel
 
 
 def _validate(nx, ny, nz, lx, ly, lz, conductivity, boundary):
     if min(nx, ny, nz) < 3:
         raise ValueError("Grid X, Y, dan Z minimal 3.")
+    if not np.isfinite([lx, ly, lz, conductivity]).all():
+        raise ValueError("Dimensi dan konduktivitas harus berupa angka finite.")
     if min(lx, ly, lz, conductivity) <= 0:
         raise ValueError("Dimensi domain dan konduktivitas harus positif.")
     required = {"x_min", "x_max", "y_min", "y_max", "z_min", "z_max"}
@@ -51,11 +54,11 @@ def _grid(nx, ny, nz, lx, ly, lz):
 
 def solve_steady_state_3d(
     nx, ny, nz, lx, ly, lz, conductivity, heat_generation, boundary,
-    initial_temperature=25.0, tolerance=1e-6, max_iterations=30000, progress_callback=None,
+    initial_temperature=25.0, tolerance=1e-6, max_iterations=30000, progress_callback=None, cancel_event=None,
 ):
     """Selesaikan ∇²T + q_vol/k = 0 dengan iterasi Jacobi 3D."""
     _validate(nx, ny, nz, lx, ly, lz, conductivity, boundary)
-    if tolerance <= 0 or max_iterations < 1 or conductivity <= 0:
+    if not np.isfinite([heat_generation, initial_temperature, tolerance]).all() or tolerance <= 0 or max_iterations < 1:
         raise ValueError("Toleransi, iterasi, dan konduktivitas harus positif.")
     dx, dy, dz = _grid(nx, ny, nz, lx, ly, lz)
     ix, iy, iz = 1 / dx**2, 1 / dy**2, 1 / dz**2
@@ -66,6 +69,7 @@ def solve_steady_state_3d(
     converged = False
     delta = float("inf")
     for iteration in range(1, int(max_iterations) + 1):
+        check_cancel(cancel_event)
         old = T.copy()
         T[1:-1, 1:-1, 1:-1] = (
             (old[1:-1, 1:-1, 2:] + old[1:-1, 1:-1, :-2]) * ix
@@ -98,10 +102,12 @@ def stable_time_step_3d(conductivity, density, specific_heat, dx, dy, dz):
 def solve_transient_3d(
     nx, ny, nz, lx, ly, lz, conductivity, density, specific_heat,
     heat_generation, boundary, initial_temperature, total_time, max_dt,
-    snapshot_count=9, progress_callback=None,
+    snapshot_count=9, progress_callback=None, cancel_event=None,
 ):
     """Selesaikan konduksi panas transient eksplisit dan simpan snapshot terbatas."""
     _validate(nx, ny, nz, lx, ly, lz, conductivity, boundary)
+    if not np.isfinite([density, specific_heat, total_time, max_dt, heat_generation, initial_temperature]).all():
+        raise ValueError("Parameter transient harus berupa angka finite.")
     if min(density, specific_heat, total_time, max_dt) <= 0:
         raise ValueError("rho, cp, total_time, dan max_dt harus positif.")
     dx, dy, dz = _grid(nx, ny, nz, lx, ly, lz)
@@ -123,6 +129,7 @@ def solve_transient_3d(
         snapshots.append(T.copy())
         snapshot_times.append(0.0)
     for step in range(1, steps + 1):
+        check_cancel(cancel_event)
         old = T.copy()
         T[1:-1, 1:-1, 1:-1] = old[1:-1, 1:-1, 1:-1] + dt * (
             alpha * (
