@@ -658,6 +658,24 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                 colorscale="Inferno", colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}, "tickmode": "auto"},
                 hovertemplate=hover3,
             ))
+            # Color-coded edge overlays for the four faces intersecting the selected 3D slice.
+            _bc3 = st.session_state.get("heat3d_result_boundary", boundary3)
+            if slice_axis3 == "Z (XY)":
+                _face_keys = [("x_min", "X−"), ("x_max", "X+"), ("y_min", "Y−"), ("y_max", "Y+")]
+            elif slice_axis3 == "Y (XZ)":
+                _face_keys = [("x_min", "X−"), ("x_max", "X+"), ("z_min", "Z−"), ("z_max", "Z+")]
+            else:
+                _face_keys = [("y_min", "Y−"), ("y_max", "Y+"), ("z_min", "Z−"), ("z_max", "Z+")]
+            _face_colors = ["#38C8F2", "#FFB454", "#A78BFA", "#62D5A3"]
+            for (_key, _label), _color in zip(_face_keys, _face_colors):
+                _value = float(_bc3.get(_key, 0.0))
+                if _label.endswith("−"):
+                    slice_fig3.add_shape(type="line", x0=slice_x3[0], x1=slice_x3[-1], y0=slice_y3[0], y1=slice_y3[0], line={"color": _color, "width": 4}) if _label[0] in ("Y", "Z") else slice_fig3.add_shape(type="line", x0=slice_x3[0], x1=slice_x3[0], y0=slice_y3[0], y1=slice_y3[-1], line={"color": _color, "width": 4})
+                else:
+                    slice_fig3.add_shape(type="line", x0=slice_x3[0], x1=slice_x3[-1], y0=slice_y3[-1], y1=slice_y3[-1], line={"color": _color, "width": 4}) if _label[0] in ("Y", "Z") else slice_fig3.add_shape(type="line", x0=slice_x3[-1], x1=slice_x3[-1], y0=slice_y3[0], y1=slice_y3[-1], line={"color": _color, "width": 4})
+                slice_fig3.add_annotation(x=0.02, y=0.98 - 0.07 * _face_colors.index(_color), xref="paper", yref="paper", text=f"{_label}: {_value:g} °C", showarrow=False, xanchor="left", bgcolor="rgba(20,32,45,.88)", bordercolor=_color, borderwidth=1, font={"color": _color, "size": 9})
+            if float(st.session_state.get("heat3d_result_q", q3)) > 0:
+                slice_fig3.add_annotation(x=0.5, y=0.5, xref="paper", yref="paper", text=f"☀ Heat source {float(st.session_state.get('heat3d_result_q', q3)):.3g} W/m³", showarrow=False, bgcolor="rgba(255,180,84,.88)", font={"color": "#18212B", "size": 10})
             slice_fig3.update_layout(
                 title=slice_title3, xaxis_title=axis_labels3[0],
                 yaxis_title=axis_labels3[1], height=470,
