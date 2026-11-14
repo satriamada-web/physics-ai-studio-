@@ -1,11 +1,11 @@
-# Physics AI Studio — MVP 0.9
+# Physics AI Studio — MVP 1.0
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
 sedangkan perhitungan dijalankan pada server cloud Streamlit.
 
 ## Fitur
-- Panel verifikasi numerik otomatis dengan tiga kasus analitik: steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.
+- Diagnostik residual persamaan steady-state: residual maksimum absolut dan RMS dari persamaan beda hingga pada node interior.\n- Panel verifikasi numerik otomatis dengan empat kasus uji: residual steady-state, steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.
 - Konduksi panas 2D pada pelat persegi panjang.
 - Steady-state dengan iterasi Jacobi.
 - Transient dengan skema beda hingga eksplisit.
@@ -104,3 +104,15 @@ Panel verifikasi menjalankan tiga kasus dengan jawaban analitik yang diketahui:
 Toleransi pemeriksaan adalah 1×10⁻⁸ untuk kasus uji tersebut. Lulus pada kasus uji
 ini hanya menunjukkan konsistensi pada kasus sederhana yang diuji; hal itu bukan
 validasi eksperimen dan tidak membuktikan akurasi untuk semua geometri atau kondisi.
+
+
+## Diagnostik residual MVP 1.0
+Untuk mode steady-state, aplikasi menghitung residual diskret pada node interior:
+
+R = d²T/dx² + d²T/dy² + q'''/k
+
+Aplikasi menampilkan residual maksimum absolut dan residual RMS dalam K/m².
+Residual menunjukkan konsistensi solusi terhadap persamaan beda hingga pada mesh
+yang digunakan. Nilai residual bukan error eksperimen, bukan jaminan independensi
+mesh, dan tidak boleh dibandingkan antar-mesh tanpa mempertimbangkan skala serta
+ukuran grid. Diagnostik ini tidak ditampilkan untuk mode transient.
