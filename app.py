@@ -3,7 +3,7 @@ import json
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
-from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step, calculate_heat_flux, calculate_steady_residual
+from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step, calculate_heat_flux, calculate_steady_residual, calculate_transient_diagnostics
 from physics.reporting import build_heat_transfer_pdf
 from physics.materials import MATERIALS
 from physics.verification import run_verification_suite
@@ -11,7 +11,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.1 · Kontrol solver, residual persamaan, verifikasi numerik, studi mesh, dan analisis fluks panas")
+st.caption("MVP 1.2 · Kontrol solver, residual persamaan, verifikasi numerik, studi mesh, dan analisis fluks panas")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
@@ -246,6 +246,7 @@ if run:
     boundary = {"left": float(t_left), "right": float(t_right), "top": float(t_top), "bottom": float(t_bottom)}
     try:
         residual = None
+        transient_diagnostics = None
         with st.spinner("Menghitung solusi numerik..."):
             if mode == "Steady-state":
                 result = solve_steady_state(nx, ny, lx, ly, k, q_vol, boundary, t_initial, tolerance=solver_tolerance, max_iterations=solver_max_iterations)
@@ -259,8 +260,9 @@ if run:
                     st.error(f"Simulasi membutuhkan {steps_required:,} langkah (batas MVP 20.000). Kurangi waktu simulasi atau jumlah grid.")
                     st.stop()
                 result = solve_transient(nx, ny, lx, ly, k, rho, cp, q_vol, boundary, t_initial, total_time, dt_limit)
+                transient_diagnostics = calculate_transient_diagnostics(k, rho, cp, lx, ly, nx, ny, result["dt"])
                 info = f"Transient · {result['steps']:,} langkah · waktu akhir: {result['simulated_time']:.6g} s"
-                extra = f"dt aktual = {result['dt']:.3e} s · batas stabilitas = {stable_time_step(k, rho, cp, lx/(nx-1), ly/(ny-1)):.3e} s"
+                extra = f"dt aktual = {result['dt']:.3e} s · batas stabilitas = {transient_diagnostics['dt_stability_limit']:.3e} s · rasio stabilitas = {transient_diagnostics['stability_ratio']:.3f}"
         st.session_state["last_result"] = {
             "T": result["temperature"], "x": np.linspace(0, lx, nx), "y": np.linspace(0, ly, ny),
             "snapshots": result.get("snapshots", []), "snapshot_times": result.get("snapshot_times", []),
@@ -268,7 +270,8 @@ if run:
             "p": {"nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol,
                   "boundary": boundary, "initial": t_initial, "total_time": total_time,
                   "material_name": material_name, "solver_tolerance": solver_tolerance,
-                   "solver_max_iterations": solver_max_iterations}, "residual": residual
+                   "solver_max_iterations": solver_max_iterations}, "residual": residual,
+            "transient_diagnostics": transient_diagnostics
         }
         st.success("Simulasi selesai. Hasil numerik berhasil dihitung.")
     except Exception as exc:
@@ -282,6 +285,20 @@ else:
     T, x, y = data["T"], data["x"], data["y"]
     qx, qy, qmag = calculate_heat_flux(T, data["p"]["k"], data["p"]["lx"], data["p"]["ly"])
     st.divider()
+    if data.get("transient_diagnostics") is not None:
+        td = data["transient_diagnostics"]
+        with st.expander("Diagnostik stabilitas transient", expanded=True):
+            st.caption("Syarat stabilitas skema eksplisit 2D: Fo_x + Fo_y ≤ 0,5.")
+            d1, d2, d3 = st.columns(3)
+            d1.metric("Difusivitas termal", f"{td['thermal_diffusivity']:.3e} m²/s")
+            d2.metric("Fo_x + Fo_y", f"{td['fourier_sum']:.4f}")
+            d3.metric("Rasio dt / dt kritis", f"{td['stability_ratio']:.3f}")
+            st.write(f"Fo_x = {td['fourier_x']:.5f} · Fo_y = {td['fourier_y']:.5f}")
+            st.write(f"dt aktual = {td['dt_actual']:.3e} s · dt kritis = {td['dt_stability_limit']:.3e} s")
+            if td["stable"]:
+                st.success("Langkah waktu memenuhi batas stabilitas eksplisit.")
+            else:
+                st.error("Langkah waktu melampaui batas stabilitas eksplisit.")
     st.subheader("Hasil simulasi")
     st.caption(data["info"])
     st.caption(data["extra"])
@@ -505,4 +522,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 1.1 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 1.2 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
