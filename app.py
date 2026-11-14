@@ -191,6 +191,10 @@ div[class*="st-key-transient_pill"] {
   box-shadow:0 12px 40px rgba(0,0,0,.38) !important;
 }
 .timeline-pill-label {font-size:.60rem; letter-spacing:.14em; color:#8DA4B9; font-weight:800; margin:0 0 3px 5px;}
+div[class*="st-key-transient_pill_heat3d_playback"] { bottom:96px !important; }
+@media(max-width:600px) {
+ div[class*="st-key-transient_pill_heat3d_playback"] { bottom:88px !important; }
+}
 div[class*="st-key-transient_pill"] button {min-height:35px !important; border-radius:12px !important;}
 div[class*="st-key-transient_pill"] [data-testid="stSlider"] {padding-top:0 !important;}
 div[class*="st-key-transient_pill"] [data-testid="stSlider"] label {display:none !important;}
