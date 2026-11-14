@@ -202,6 +202,11 @@ def build_heat_transfer_pdf(data):
             "time-step limit.",
             styles["BodyText"],
         ),
+        add_table([
+            ["Solver control", "Configured value"],
+            ["Steady-state convergence tolerance", f"{p.get('solver_tolerance', 1e-6):.3e} °C"],
+            ["Maximum Jacobi iterations", f"{p.get('solver_max_iterations', 30000):,}"],
+        ], [70 * mm, 90 * mm]),
         Paragraph("6. Temperature Distribution", styles["Section"]),
         HeatmapFlowable(T),
         Spacer(1, 4),
