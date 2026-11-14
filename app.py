@@ -12,7 +12,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.4 · Geometry Builder 3D, solver Heat Transfer 2D, dan fondasi solver 3D eksperimental")
+st.caption("MVP 1.5 · Geometry Builder dan Structured 3D Mesh, solver Heat Transfer 2D, dan fondasi solver 3D eksperimental")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 st.divider()
@@ -105,6 +105,65 @@ with st.expander("Buka Geometry Builder 3D", expanded=True):
             mime="text/plain",
         )
         st.info("Geometri ini masih berupa permukaan segitiga (surface mesh). Solver 3D saat ini memakai grid Cartesian terstruktur dan belum menerima geometri arbitrer ini secara langsung.")
+
+st.divider()
+st.header("Structured 3D Mesh Engine · MVP 1.5")
+st.caption("Bangun grid Cartesian node-centred untuk domain balok. Grid ini memakai konvensi array (z, y, x) yang kompatibel dengan fondasi solver panas 3D.")
+with st.expander("Buka 3D Mesh Engine", expanded=False):
+    from physics.mesh_3d import create_structured_mesh
+
+    mesh_cols = st.columns(3)
+    with mesh_cols[0]:
+        mesh_nx = st.number_input("Node arah X", min_value=2, max_value=58, value=11, step=1, key="mesh3d_nx")
+        mesh_lx = st.number_input("Panjang domain X (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_lx")
+    with mesh_cols[1]:
+        mesh_ny = st.number_input("Node arah Y", min_value=2, max_value=58, value=11, step=1, key="mesh3d_ny")
+        mesh_ly = st.number_input("Panjang domain Y (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_ly")
+    with mesh_cols[2]:
+        mesh_nz = st.number_input("Node arah Z", min_value=2, max_value=58, value=11, step=1, key="mesh3d_nz")
+        mesh_lz = st.number_input("Panjang domain Z (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_lz")
+    st.caption("Batas aman saat ini: maksimum 200.000 node per grid. Preview hanya menampilkan sampel node agar browser tetap ringan.")
+    if st.button("Buat / perbarui structured mesh", key="build_structured_mesh_3d", type="primary"):
+        try:
+            st.session_state["structured_mesh_3d_result"] = create_structured_mesh(
+                int(mesh_nx), int(mesh_ny), int(mesh_nz),
+                float(mesh_lx), float(mesh_ly), float(mesh_lz),
+            )
+            st.session_state.pop("structured_mesh_3d_error", None)
+        except Exception as exc:
+            st.session_state["structured_mesh_3d_error"] = str(exc)
+    if st.session_state.get("structured_mesh_3d_error"):
+        st.error(st.session_state["structured_mesh_3d_error"])
+    structured_mesh = st.session_state.get("structured_mesh_3d_result")
+    if structured_mesh:
+        sx = structured_mesh["x"][::max(1, int(np.ceil(structured_mesh["nx"] / 11)))]
+        sy = structured_mesh["y"][::max(1, int(np.ceil(structured_mesh["ny"] / 11)))]
+        sz = structured_mesh["z"][::max(1, int(np.ceil(structured_mesh["nz"] / 11)))]
+        if sx[-1] != structured_mesh["x"][-1]:
+            sx = np.append(sx, structured_mesh["x"][-1])
+        if sy[-1] != structured_mesh["y"][-1]:
+            sy = np.append(sy, structured_mesh["y"][-1])
+        if sz[-1] != structured_mesh["z"][-1]:
+            sz = np.append(sz, structured_mesh["z"][-1])
+        zz, yy, xx = np.meshgrid(sz, sy, sx, indexing="ij")
+        grid_fig = go.Figure(go.Scatter3d(
+            x=xx.ravel(), y=yy.ravel(), z=zz.ravel(),
+            mode="markers",
+            marker={"size": 2.5, "opacity": 0.7},
+            hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>z=%{z:.4f} m<extra>Node grid</extra>",
+        ))
+        grid_fig.update_layout(
+            title="Preview node grid Cartesian 3D (sampel)",
+            scene={"xaxis_title": "X (m)", "yaxis_title": "Y (m)", "zaxis_title": "Z (m)", "aspectmode": "data"},
+            height=500, margin={"l": 0, "r": 0, "t": 50, "b": 0},
+        )
+        st.plotly_chart(grid_fig, use_container_width=True, key="structured_mesh_3d_preview")
+        mm1, mm2, mm3, mm4 = st.columns(4)
+        mm1.metric("Total node", f"{structured_mesh['node_count']:,}")
+        mm2.metric("Cell heksahedral", f"{structured_mesh['cell_count']:,}")
+        mm3.metric("Bentuk array (z,y,x)", str(structured_mesh["shape_zyx"]))
+        mm4.metric("Ukuran langkah dx/dy/dz", f"{structured_mesh['dx']:.4g} / {structured_mesh['dy']:.4g} / {structured_mesh['dz']:.4g} m")
+        st.info("Grid ini merupakan node-centred Cartesian structured grid untuk metode beda hingga. Cell count menunjukkan jumlah blok antar-node; belum ada konektivitas elemen FEM atau mesh tetrahedral. Integrasi langsung ke antarmuka solver 3D menjadi tahap berikutnya.")
 
 DEFAULT_SETTINGS = {
     "mode": "Steady-state", "material_name": "Custom", "nx": 41, "ny": 41,
@@ -653,4 +712,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 1.4 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 1.5 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
