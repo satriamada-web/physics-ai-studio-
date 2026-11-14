@@ -338,13 +338,12 @@ with st.expander("Geometry Builder 3D", expanded=False):
         )
         st.caption("Makin tinggi resolusi, makin halus permukaan silinder.")
     if st.button("Buat / perbarui geometri 3D", key="build_geometry_3d", type="primary"):
-        try:
-            st.session_state["geometry_3d_result"] = create_geometry(
-                geometry_shape, dimensions, geometry_resolution
-            )
-            st.session_state.pop("geometry_3d_error", None)
-        except Exception as exc:
-            st.session_state["geometry_3d_error"] = str(exc)
+        st.session_state["geometry3d_job_id"] = submit_job(
+            "geometry-surface-mesh", create_geometry,
+            geometry_shape, dimensions, geometry_resolution,
+        )
+        st.session_state.pop("geometry_3d_error", None)
+    render_job_monitor("geometry3d_job_id", "geometry_3d_result", "Pembuatan geometri 3D")
     if st.session_state.get("geometry_3d_error"):
         st.error(st.session_state["geometry_3d_error"])
     geometry_result = st.session_state.get("geometry_3d_result")
