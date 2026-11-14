@@ -92,7 +92,7 @@ def calculate_transient_diagnostics(conductivity, density, specific_heat, lx, ly
 
 def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
                     heat_generation, boundary, initial_temperature, total_time, dt,
-                    snapshot_count=9):
+                    snapshot_count=9, probe_x=None, probe_y=None):
     """Solver eksplisit 2D dengan langkah waktu yang disesuaikan agar t akhir tepat.
 
     dt yang diterima diperlakukan sebagai batas maksimum langkah waktu.
@@ -116,8 +116,15 @@ def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
     if dt_actual > dt_max * (1.0 + 1e-10):
         raise ValueError("Langkah waktu aktual melampaui batas stabilitas.")
 
+    probe_x = nx // 2 if probe_x is None else int(probe_x)
+    probe_y = ny // 2 if probe_y is None else int(probe_y)
+    if not (0 <= probe_x < nx and 0 <= probe_y < ny):
+        raise ValueError("Indeks titik pemantauan berada di luar grid.")
+
     T = np.full((ny, nx), float(initial_temperature))
     _boundary(T, boundary)
+    probe_times = [0.0]
+    probe_temperatures = [float(T[probe_y, probe_x])]
     rx, ry = alpha * dt_actual / dx**2, alpha * dt_actual / dy**2
     source = heat_generation / (density * specific_heat)
 
@@ -137,12 +144,18 @@ def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
             + dt_actual * source
         )
         _boundary(T, boundary)
+        probe_times.append(step * dt_actual)
+        probe_temperatures.append(float(T[probe_y, probe_x]))
         if step in snapshot_lookup:
             snapshots.append(T.copy())
             snapshot_times.append(step * dt_actual)
 
     return {
         "temperature": T,
+        "probe_x": probe_x,
+        "probe_y": probe_y,
+        "probe_times": probe_times,
+        "probe_temperatures": probe_temperatures,
         "snapshots": snapshots,
         "snapshot_times": snapshot_times,
         "steps": steps,
