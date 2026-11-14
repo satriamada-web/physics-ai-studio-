@@ -79,7 +79,7 @@ def render_transient_pill(snapshot_count, times, prefix):
         else:
             st.session_state[index_key] = next_index
         st.session_state[slider_key] = st.session_state[index_key]
-    with st.container(key="transient_pill"):
+    with st.container(key=f"transient_pill_{prefix}"):
         st.markdown('<div class="timeline-pill-label">TRANSIENT PLAYBACK</div>', unsafe_allow_html=True)
         play_col, pause_col, reset_col, timeline_col = st.columns([0.8, 0.8, 0.8, 5.4], vertical_alignment="center")
         with play_col:
