@@ -136,7 +136,7 @@ def build_heat_transfer_pdf(data):
 
     story = [
         Paragraph("PHYSICS AI STUDIO", styles["ReportTitle"]),
-        Paragraph("HEAT TRANSFER SIMULATION REPORT · MVP 1.0", styles["SubTitle"]),
+        Paragraph("HEAT TRANSFER SIMULATION REPORT · MVP 1.1", styles["SubTitle"]),
         Paragraph("1. Simulation Overview", styles["Section"]),
         Paragraph(
             f"<b>Simulation mode:</b> {data['mode']}<br/>"
