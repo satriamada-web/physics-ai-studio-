@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 0.5
+# Physics AI Studio — MVP 0.6
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -8,7 +8,9 @@ sedangkan perhitungan dijalankan pada server cloud Streamlit.
 - Konduksi panas 2D pada pelat persegi panjang.
 - Steady-state dengan iterasi Jacobi.
 - Transient dengan skema beda hingga eksplisit.
-- Pengaturan geometri, grid, material, temperatur awal, kondisi batas, dan sumber panas.
+- Database material representatif: baja karbon AISI 1018, aluminium 6061-T6, tembaga OFE C10100, dan stainless steel 304; pilihan Custom tetap tersedia.
+- Pemilihan material otomatis mengisi konduktivitas termal, massa jenis, dan kalor jenis; nilai tetap dapat disunting manual.
+- Pengaturan geometri, grid, temperatur awal, kondisi batas, dan sumber panas.
 - Peta temperatur 2D dan grafik profil suhu.
 - Kontrol waktu akhir transient agar simulasi berhenti tepat pada durasi target.
 - Hingga 9 snapshot untuk melihat evolusi distribusi temperatur dari awal hingga akhir.
@@ -58,3 +60,16 @@ Tekan **Jalankan simulasi**. Periksa peta temperatur, lalu coba unduh CSV dan la
 Streamlit Community Cloud cocok untuk MVP dan grid kecil-menengah. Layanan gratis memiliki
 batas sumber daya dan aplikasi dapat tidur saat tidak digunakan. Ini bukan infrastruktur
 produksi untuk CFD/FEM besar atau simulasi 3D berat.
+
+
+## Database material MVP 0.6
+Nilai bawaan adalah nilai representatif, terutama di sekitar temperatur ruang, dan
+bukan pengganti datasheet lot atau paduan yang sebenarnya. Sifat material dapat
+berubah menurut komposisi, temper, proses manufaktur, dan temperatur. Untuk desain
+rekayasa, gunakan data material spesifik dan lakukan verifikasi independen.
+
+Referensi data:
+- Baja karbon AISI 1018: EngiRef, https://engiref.app/materials/
+- Aluminium 6061-T6: MatWeb, https://asm.matweb.com/search/SpecificMaterial.asp?bassnum=MA6061T6
+- Tembaga OFE C10100: KME, https://www.kme.com/fileadmin/DOWNLOADCENTER/COPPER%20DIVISON/4_Industrial_Rolled/3_Datasheets/07_2023_C10100_Cu-OFE_e.pdf
+- Stainless steel 304: ASSDA, https://www.assda.asn.au/stainless-steel/properties-and-performance
