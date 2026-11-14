@@ -50,6 +50,55 @@ def slider_with_stepper(label, minimum, maximum, step=1, key=None, value=None, o
                   args=(key, 1, step, minimum, maximum, on_change), use_container_width=True)
     return value
 
+
+def _set_playing(key, value):
+    st.session_state[key] = value
+
+
+def _reset_timeline(index_key, playing_key, slider_key):
+    st.session_state[index_key] = 0
+    st.session_state[slider_key] = 0
+    st.session_state[playing_key] = False
+
+
+@st.fragment(run_every="500ms")
+def render_transient_pill(snapshot_count, times, prefix):
+    """Floating transient timeline with fragment-driven playback."""
+    index_key = f"{prefix}_frame"
+    playing_key = f"{prefix}_playing"
+    slider_key = f"{prefix}_timeline"
+    if index_key not in st.session_state:
+        st.session_state[index_key] = 0
+    if playing_key not in st.session_state:
+        st.session_state[playing_key] = False
+    if st.session_state[playing_key]:
+        next_index = st.session_state[index_key] + 1
+        if next_index >= snapshot_count:
+            st.session_state[index_key] = snapshot_count - 1
+            st.session_state[playing_key] = False
+        else:
+            st.session_state[index_key] = next_index
+        st.session_state[slider_key] = st.session_state[index_key]
+    with st.container(key="transient_pill"):
+        st.markdown('<div class="timeline-pill-label">TRANSIENT PLAYBACK</div>', unsafe_allow_html=True)
+        play_col, pause_col, reset_col, timeline_col = st.columns([0.8, 0.8, 0.8, 5.4], vertical_alignment="center")
+        with play_col:
+            st.button("▶", key=f"{prefix}_play", help="Play", disabled=st.session_state[playing_key] or st.session_state[index_key] >= snapshot_count - 1,
+                      on_click=_set_playing, args=(playing_key, True), use_container_width=True)
+        with pause_col:
+            st.button("Ⅱ", key=f"{prefix}_pause", help="Pause", disabled=not st.session_state[playing_key],
+                      on_click=_set_playing, args=(playing_key, False), use_container_width=True)
+        with reset_col:
+            st.button("↺", key=f"{prefix}_reset", help="Reset ke awal", on_click=_reset_timeline,
+                      args=(index_key, playing_key, slider_key), use_container_width=True)
+        with timeline_col:
+            current = st.slider("Timeline simulasi", 0, max(0, snapshot_count - 1),
+                                key=slider_key, label_visibility="collapsed")
+            st.session_state[index_key] = current
+            st.caption(f"t = {times[current]:.5g} s / {times[-1]:.5g} s · frame {current + 1}/{snapshot_count}")
+    return int(st.session_state[index_key])
+
+
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 apply_theme()
 st.markdown("""
@@ -116,7 +165,26 @@ div[class*="st-key-bottom_sheet"] [data-testid="stExpander"] summary { padding-t
 div[class*="st-key-bottom_sheet"] h1,
 div[class*="st-key-bottom_sheet"] h2,
 div[class*="st-key-bottom_sheet"] h3 { margin-top:.35rem !important; margin-bottom:.35rem !important; }
-div[data-testid="stPlotlyChart"] { width:100% !important; }
+
+div[class*="st-key-transient_pill"] {
+  position:fixed !important; z-index:1200 !important; left:50% !important;
+  transform:translateX(-50%) !important; bottom:22px !important;
+  width:min(760px,calc(100vw - 24px)) !important; padding:9px 13px 7px !important;
+  border:1px solid rgba(125,190,215,.30) !important; border-radius:22px !important;
+  background:rgba(24,37,51,.88) !important; backdrop-filter:blur(20px) saturate(140%) !important;
+  -webkit-backdrop-filter:blur(20px) saturate(140%) !important;
+  box-shadow:0 12px 40px rgba(0,0,0,.38) !important;
+}
+.timeline-pill-label {font-size:.60rem; letter-spacing:.14em; color:#8DA4B9; font-weight:800; margin:0 0 3px 5px;}
+div[class*="st-key-transient_pill"] button {min-height:35px !important; border-radius:12px !important;}
+div[class*="st-key-transient_pill"] [data-testid="stSlider"] {padding-top:0 !important;}
+div[class*="st-key-transient_pill"] [data-testid="stSlider"] label {display:none !important;}
+div[class*="st-key-transient_pill"] [data-testid="stCaptionContainer"] {text-align:right; font-size:.66rem;}
+@media(max-width:600px) {
+ div[class*="st-key-transient_pill"] {bottom:8px !important; padding:7px 8px 5px !important;}
+ div[class*="st-key-transient_pill"] [data-testid="stHorizontalBlock"] {gap:.25rem !important;}
+}
+\ndiv[data-testid="stPlotlyChart"] { width:100% !important; }
 @media (max-width: 700px) {
   [data-testid="stMainBlockContainer"] { padding-left:.55rem !important; padding-right:.55rem !important; padding-bottom:28vh !important; }
   .floating-tools { width:100%; justify-content:space-between; gap:5px; padding:6px; margin-bottom:9px; }
@@ -389,25 +457,43 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             st.caption(f"Batas stabilitas eksplisit untuk mesh dan material ini: dt ≤ {stable_dt3:.5g} s. Solver otomatis memilih langkah waktu aman berdasarkan batas tersebut dan input maksimum di atas.")
         if st.button("▶ Jalankan simulasi Heat Transfer 3D", key="run_heat3d", type="primary", disabled=not solver_allowed):
             try:
-                with st.spinner("Menghitung medan temperatur 3D..."):
+                progress3 = st.progress(0, text="Menyiapkan solver 3D…")
+                progress3_note = st.empty()
+                def update_progress_3d(current, total, metric):
+                    pct = min(100, int(100 * current / max(1, total)))
                     if solver_mode_3d == "Steady-state":
-                        result3 = solve_steady_state_3d(
-                            active_mesh["nx"], active_mesh["ny"], active_mesh["nz"],
-                            active_mesh["lx"], active_mesh["ly"], active_mesh["lz"],
-                            float(k3), float(q3), boundary3,
-                            initial_temperature=float(initial3),
-                            tolerance=float(tol3), max_iterations=int(iter3),
-                        )
-                        result3["mode"] = "Steady-state"
+                        detail = f"Iterasi {current:,}/{total:,} · ΔT maks {metric:.3e} °C" if metric is not None else f"Iterasi {current:,}/{total:,}"
+                        progress3.progress(pct, text=f"Solver 3D · {pct}%")
+                        progress3_note.caption(detail + f" · target toleransi {float(tol3):.1e} °C")
                     else:
-                        result3 = solve_transient_3d(
-                            active_mesh["nx"], active_mesh["ny"], active_mesh["nz"],
-                            active_mesh["lx"], active_mesh["ly"], active_mesh["lz"],
-                            float(k3), float(rho3), float(cp3), float(q3), boundary3,
-                            float(initial3), float(total3), float(maxdt3),
-                            snapshot_count=9,
-                        )
-                        result3["mode"] = "Transient"
+                        progress3.progress(pct, text=f"Integrasi waktu 3D · {pct}%")
+                        progress3_note.caption(f"Langkah waktu {current:,}/{total:,}")
+                if solver_mode_3d == "Steady-state":
+                    result3 = solve_steady_state_3d(
+                        active_mesh["nx"], active_mesh["ny"], active_mesh["nz"],
+                        active_mesh["lx"], active_mesh["ly"], active_mesh["lz"],
+                        float(k3), float(q3), boundary3,
+                        initial_temperature=float(initial3),
+                        tolerance=float(tol3), max_iterations=int(iter3),
+                        progress_callback=update_progress_3d,
+                    )
+                    result3["mode"] = "Steady-state"
+                    progress3.progress(100, text="Solver selesai")
+                    progress3_note.caption(
+                        f"{'Konvergen' if result3['converged'] else 'Batas iterasi tercapai'} · "
+                        f"{result3['iterations']:,} iterasi · ΔT akhir {result3['last_delta']:.3e} °C"
+                    )
+                else:
+                    result3 = solve_transient_3d(
+                        active_mesh["nx"], active_mesh["ny"], active_mesh["nz"],
+                        active_mesh["lx"], active_mesh["ly"], active_mesh["lz"],
+                        float(k3), float(rho3), float(cp3), float(q3), boundary3,
+                        float(initial3), float(total3), float(maxdt3),
+                        snapshot_count=9, progress_callback=update_progress_3d,
+                    )
+                    result3["mode"] = "Transient"
+                    progress3.progress(100, text="Integrasi waktu selesai")
+                    progress3_note.caption(f"{result3['steps']:,} langkah selesai · t akhir {result3['simulated_time']:.5g} s")
                     st.session_state["heat3d_result"] = result3
                     st.session_state["heat3d_result_mesh"] = {
                         "nx": active_mesh["nx"], "ny": active_mesh["ny"], "nz": active_mesh["nz"],
@@ -433,11 +519,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
         }:
             T3 = result3["temperature"]
             if result3["mode"] == "Transient" and result3.get("snapshots"):
-                snap3 = st.slider(
-                    "Snapshot waktu (indeks)", min_value=0,
-                    max_value=len(result3["snapshots"]) - 1, value=len(result3["snapshots"]) - 1,
-                    key="heat3d_snapshot_index",
-                )
+                snap3 = render_transient_pill(len(result3["snapshots"]), result3["snapshot_times"], "heat3d_playback")
                 viewT3 = result3["snapshots"][snap3]
                 viewtime3 = result3["snapshot_times"][snap3]
                 st.caption(f"Snapshot pada t = {viewtime3:.5g} s dari total {result3['simulated_time']:.5g} s.")
@@ -485,7 +567,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                 hover3 = "y=%{x:.4g} m<br>z=%{y:.4g} m<br>T=%{z:.3f} °C<extra></extra>"
             slice_fig3 = go.Figure(go.Heatmap(
                 z=slice_values3, x=slice_x3, y=slice_y3,
-                colorscale="Inferno", colorbar={"title": "°C"},
+                colorscale="Inferno", colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
                 hovertemplate=hover3,
             ))
             slice_fig3.update_layout(
@@ -527,12 +609,12 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                 x=xc.ravel(), y=yc.ravel(), z=zc.ravel(), value=viewT3.ravel(),
                 isomin=float(viewT3.min()) - 1e-9, isomax=float(viewT3.max()) + 1e-9,
                 opacity=0.12, surface_count=12, colorscale="Inferno",
-                colorbar={"title": "°C"},
+                colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
             ))
             volume_fig3.update_layout(
                 title="Visualisasi volume temperatur 3D",
                 scene={"xaxis_title": "X (m)", "yaxis_title": "Y (m)", "zaxis_title": "Z (m)", "aspectmode": "data"},
-                height=700, margin={"l": 0, "r": 0, "t": 50, "b": 0},
+                height=700, margin={"l": 0, "r": 82, "t": 50, "b": 0},
             )
             st.plotly_chart(volume_fig3, use_container_width=True, key="heat3d_volume")
 
@@ -567,7 +649,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                     u=qx_sample3[flux_mask3], v=qy_sample3[flux_mask3], w=qz_sample3[flux_mask3],
                     customdata=qm_sample3[flux_mask3],
                     colorscale="Viridis", cmin=0, cmax=float(qmag3.max()),
-                    colorbar={"title": "W/m²"}, showscale=True,
+                    colorbar={"title": {"text": "FLUKS<br>W/m²", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}}, showscale=True,
                     sizemode="scaled", sizeref=0.5, anchor="tail",
                     hovertemplate=(
                         "x=%{x:.4g} m<br>y=%{y:.4g} m<br>z=%{z:.4g} m"
@@ -580,7 +662,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                         "xaxis_title": "X (m)", "yaxis_title": "Y (m)",
                         "zaxis_title": "Z (m)", "aspectmode": "data",
                     },
-                    height=560, margin={"l": 0, "r": 0, "t": 50, "b": 0},
+                    height=560, margin={"l": 0, "r": 82, "t": 50, "b": 0},
                 )
                 st.plotly_chart(cone_fig3, use_container_width=True, key="heat3d_flux_vectors")
                 st.caption(
@@ -918,25 +1000,36 @@ if run:
     try:
         residual = None
         transient_diagnostics = None
-        with st.spinner("Menghitung solusi numerik..."):
+        progress2 = st.progress(0, text="Menyiapkan solver 2D…")
+        progress2_note = st.empty()
+        def update_progress_2d(current, total, metric):
+            pct = min(100, int(100 * current / max(1, total)))
+            progress2.progress(pct, text=f"Solver 2D · {pct}%")
             if mode == "Steady-state":
-                result = solve_steady_state(nx, ny, lx, ly, k, q_vol, boundary, t_initial, tolerance=solver_tolerance, max_iterations=solver_max_iterations)
+                progress2_note.caption(f"Iterasi {current:,}/{total:,} · ΔT maks {metric:.3e} °C · target {solver_tolerance:.1e} °C")
+            else:
+                progress2_note.caption(f"Langkah waktu {current:,}/{total:,}")
+        if mode == "Steady-state":
+            result = solve_steady_state(nx, ny, lx, ly, k, q_vol, boundary, t_initial, tolerance=solver_tolerance, max_iterations=solver_max_iterations, progress_callback=update_progress_2d)
                 residual = calculate_steady_residual(result["temperature"], k, lx, ly, q_vol)
                 info = f"Steady-state · {result['iterations']:,} iterasi · konvergen: {'Ya' if result['converged'] else 'Belum'}"
                 extra = f"Perubahan maksimum iterasi terakhir: {result['last_delta']:.3e} °C"
-            else:
-                dt_limit = 0.9 * stable_time_step(k, rho, cp, lx/(nx-1), ly/(ny-1))
+        else:
+            dt_limit = 0.9 * stable_time_step(k, rho, cp, lx/(nx-1), ly/(ny-1))
                 steps_required = int(np.ceil(total_time / dt_limit))
                 if steps_required > 20000:
                     st.error(f"Simulasi membutuhkan {steps_required:,} langkah (batas MVP 20.000). Kurangi waktu simulasi atau jumlah grid.")
                     st.stop()
-                result = solve_transient(
-                    nx, ny, lx, ly, k, rho, cp, q_vol, boundary, t_initial,
-                    total_time, dt_limit, probe_x=probe_x_index, probe_y=probe_y_index
-                )
+            result = solve_transient(
+                nx, ny, lx, ly, k, rho, cp, q_vol, boundary, t_initial,
+                total_time, dt_limit, probe_x=probe_x_index, probe_y=probe_y_index,
+                progress_callback=update_progress_2d,
+            )
+            progress2.progress(100, text="Integrasi waktu selesai")
+            progress2_note.caption(f"{result['steps']:,} langkah selesai · t akhir {result['simulated_time']:.5g} s")
                 transient_diagnostics = calculate_transient_diagnostics(k, rho, cp, lx, ly, nx, ny, result["dt"])
-                info = f"Transient · {result['steps']:,} langkah · waktu akhir: {result['simulated_time']:.6g} s"
-                extra = f"dt aktual = {result['dt']:.3e} s · batas stabilitas = {transient_diagnostics['dt_stability_limit']:.3e} s · rasio stabilitas = {transient_diagnostics['stability_ratio']:.3f}"
+            info = f"Transient · {result['steps']:,} langkah · waktu akhir: {result['simulated_time']:.6g} s"
+            extra = f"dt aktual = {result['dt']:.3e} s · batas stabilitas = {transient_diagnostics['dt_stability_limit']:.3e} s · rasio stabilitas = {transient_diagnostics['stability_ratio']:.3f}"
         st.session_state["last_result"] = {
             "T": result["temperature"], "x": np.linspace(0, lx, nx), "y": np.linspace(0, ly, ny),
             "snapshots": result.get("snapshots", []), "snapshot_times": result.get("snapshot_times", []),
@@ -1068,14 +1161,7 @@ else:
     if data["mode"] == "Transient" and data.get("snapshots"):
         st.subheader("Evolusi temperatur terhadap waktu")
         st.caption("Geser indeks waktu untuk melihat bagaimana panas menyebar dari kondisi awal hingga akhir.")
-        frame_index = st.slider(
-            "Waktu simulasi (snapshot)",
-            min_value=0,
-            max_value=len(data["snapshots"]) - 1,
-            value=0,
-            format="%d",
-            key="transient_snapshot_index",
-        )
+        frame_index = render_transient_pill(len(data["snapshots"]), data["snapshot_times"], "heat2d_playback")
         frame_T = data["snapshots"][frame_index]
         frame_time = data["snapshot_times"][frame_index]
         e1, e2, e3 = st.columns(3)
