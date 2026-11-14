@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 1.0
+# Physics AI Studio — MVP 1.1
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -6,6 +6,7 @@ sedangkan perhitungan dijalankan pada server cloud Streamlit.
 
 ## Fitur
 - Diagnostik residual persamaan steady-state: residual maksimum absolut dan RMS dari persamaan beda hingga pada node interior.
+- Pengaturan solver steady-state: toleransi konvergensi Jacobi dan batas iterasi maksimum dapat diubah, disimpan dalam preset, serta dicatat pada laporan PDF.
 - Panel verifikasi numerik otomatis dengan empat kasus uji: residual steady-state, steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.
 - Konduksi panas 2D pada pelat persegi panjang.
 - Steady-state dengan iterasi Jacobi.
@@ -106,6 +107,15 @@ Toleransi pemeriksaan adalah 1×10⁻⁸ untuk kasus uji tersebut. Lulus pada ka
 ini hanya menunjukkan konsistensi pada kasus sederhana yang diuji; hal itu bukan
 validasi eksperimen dan tidak membuktikan akurasi untuk semua geometri atau kondisi.
 
+
+## Kontrol solver MVP 1.1
+
+Pengguna dapat mengatur toleransi perubahan maksimum temperatur antar iterasi Jacobi
+(default 1×10⁻⁶ °C; rentang 1×10⁻¹⁰ hingga 1×10⁻² °C) dan jumlah iterasi maksimum
+(default 30.000; rentang 1.000 hingga 100.000). Jika batas iterasi tercapai sebelum
+toleransi dipenuhi, hasil ditandai belum konvergen. Toleransi iterasi adalah kriteria
+berhenti solver, sedangkan residual persamaan adalah diagnostik terpisah; keduanya
+tidak boleh dianggap sebagai validasi eksperimen.
 
 ## Diagnostik residual MVP 1.0
 Untuk mode steady-state, aplikasi menghitung residual diskret pada node interior:
