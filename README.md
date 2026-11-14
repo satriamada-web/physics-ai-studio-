@@ -1,11 +1,11 @@
-# Physics AI Studio — MVP 0.8
+# Physics AI Studio — MVP 0.9
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
 sedangkan perhitungan dijalankan pada server cloud Streamlit.
 
 ## Fitur
-- Konduksi panas 2D pada pelat persegi panjang.
+- Panel verifikasi numerik otomatis dengan tiga kasus analitik: steady-state temperatur seragam, transient kondisi setimbang, dan Hukum Fourier pada medan temperatur linear.\n- Konduksi panas 2D pada pelat persegi panjang.
 - Steady-state dengan iterasi Jacobi.
 - Transient dengan skema beda hingga eksplisit.
 - Database material representatif: baja karbon AISI 1018, aluminium 6061-T6, tembaga OFE C10100, dan stainless steel 304; pilihan Custom tetap tersedia.
@@ -91,3 +91,14 @@ Temperatur pusat dan fluks maksimum dibandingkan terhadap grid 51 × 51 sebagai
 referensi numerik terhalus dalam studi. Grid referensi bukan solusi eksak.
 Semua simulasi harus mencapai kriteria konvergensi solver; perbedaan antar-grid
 tetap perlu dinilai sebelum menyatakan hasil independen terhadap mesh.
+
+
+## Verifikasi numerik MVP 0.9
+Panel verifikasi menjalankan tiga kasus dengan jawaban analitik yang diketahui:
+1. Steady-state: temperatur 50 °C seragam pada seluruh domain harus tetap seragam.
+2. Transient: kondisi awal dan seluruh batas 50 °C tanpa sumber panas harus tetap setimbang.
+3. Hukum Fourier: medan temperatur linear harus menghasilkan komponen fluks konstan yang sesuai dengan q = −k∇T.
+
+Toleransi pemeriksaan adalah 1×10⁻⁸ untuk kasus uji tersebut. Lulus pada kasus uji
+ini hanya menunjukkan konsistensi pada kasus sederhana yang diuji; hal itu bukan
+validasi eksperimen dan tidak membuktikan akurasi untuk semua geometri atau kondisi.
