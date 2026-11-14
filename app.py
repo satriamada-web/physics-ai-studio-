@@ -14,7 +14,7 @@ from physics.verification import run_verification_suite
 
 def number_input_with_unit(label, *args, **kwargs):
     """Render a numeric input with a compact unit badge on its right."""
-    match = re.search(r"\\(([^()]*)\\)\\s*$", str(label))
+    match = re.search(r"\(([^()]*)\)\s*$", str(label))
     unit = match.group(1) if match else ("iterasi" if "iterasi" in str(label).lower() else "node" if "node" in str(label).lower() else "—")
     clean_label = str(label)[:match.start()].rstrip() if match else str(label)
     input_col, unit_col = st.columns([5.8, 1.05], vertical_alignment="bottom")
@@ -32,10 +32,10 @@ def _bump_slider_value(key, delta, step, minimum, maximum, callback=None):
         callback()
 
 
-def slider_with_stepper(label, minimum, maximum, step=1, key=None, on_change=None, help=None):
+def slider_with_stepper(label, minimum, maximum, step=1, key=None, value=None, on_change=None, help=None):
     """Slider plus compact +/- controls sharing one session-state value."""
     if key not in st.session_state:
-        st.session_state[key] = minimum
+        st.session_state[key] = minimum if value is None else value
     slider_col, minus_col, plus_col = st.columns([7, 0.7, 0.7], vertical_alignment="bottom")
     with slider_col:
         value = st.slider(label, min_value=minimum, max_value=maximum,
@@ -239,13 +239,13 @@ with st.expander("Buka 3D Mesh Engine", expanded=False):
 
     mesh_cols = st.columns(3)
     with mesh_cols[0]:
-        mesh_nx = slider_with_stepper("Node arah X", 2, 58, step=1, key="mesh3d_nx")
+        mesh_nx = slider_with_stepper("Node arah X", 2, 58, step=1, key="mesh3d_nx", value=11)
         mesh_lx = number_input_with_unit("Panjang domain X (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_lx")
     with mesh_cols[1]:
-        mesh_ny = slider_with_stepper("Node arah Y", 2, 58, step=1, key="mesh3d_ny")
+        mesh_ny = slider_with_stepper("Node arah Y", 2, 58, step=1, key="mesh3d_ny", value=11)
         mesh_ly = number_input_with_unit("Panjang domain Y (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_ly")
     with mesh_cols[2]:
-        mesh_nz = slider_with_stepper("Node arah Z", 2, 58, step=1, key="mesh3d_nz")
+        mesh_nz = slider_with_stepper("Node arah Z", 2, 58, step=1, key="mesh3d_nz", value=11)
         mesh_lz = number_input_with_unit("Panjang domain Z (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_lz")
     st.caption("Batas aman saat ini: maksimum 200.000 node per grid. Preview hanya menampilkan sampel node agar browser tetap ringan.")
     if st.button("Buat / perbarui structured mesh", key="build_structured_mesh_3d", type="primary"):
