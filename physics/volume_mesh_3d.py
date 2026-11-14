@@ -66,8 +66,21 @@ def create_voxel_volume_mesh(vertices, faces, resolution=20, max_cells=50000,
     inside = np.zeros((nz, ny, nx), dtype=bool)
     triangles = vertices[faces]
 
-    # Cast vertical rays at voxel-column centres. Tiny deterministic offsets avoid
-    # rays coinciding with common axis-aligned triangulation edges.
+    # Spatial bins limit each ray to triangles whose XY bounding boxes overlap it.
+    bins = [[[] for _ in range(nx)] for _ in range(ny)]
+    for face_index, tri in enumerate(triangles):
+        tri_min = tri[:, :2].min(axis=0)
+        tri_max = tri[:, :2].max(axis=0)
+        ix0 = max(0, int(math.ceil((tri_min[0] - lower[0]) / dx - 0.5)))
+        ix1 = min(nx - 1, int(math.floor((tri_max[0] - lower[0]) / dx - 0.5)))
+        iy0 = max(0, int(math.ceil((tri_min[1] - lower[1]) / dy - 0.5)))
+        iy1 = min(ny - 1, int(math.floor((tri_max[1] - lower[1]) / dy - 0.5)))
+        if ix0 <= ix1 and iy0 <= iy1:
+            for by in range(iy0, iy1 + 1):
+                for bx in range(ix0, ix1 + 1):
+                    bins[by][bx].append(face_index)
+
+    # Tiny offsets reduce rays coinciding with common triangulation edges.
     x_offset = dx * 1.234567e-7
     y_offset = dy * 2.345679e-7
     for iy, yc in enumerate(y):
@@ -76,7 +89,8 @@ def create_voxel_volume_mesh(vertices, faces, resolution=20, max_cells=50000,
         for ix, xc in enumerate(x):
             xx = float(xc + x_offset)
             hits = []
-            for tri in triangles:
+            for face_index in bins[iy][ix]:
+                tri = triangles[face_index]
                 z_hit = _ray_triangle_z_intersection(xx, yy, tri[0], tri[1], tri[2])
                 if z_hit is not None:
                     hits.append(z_hit)
