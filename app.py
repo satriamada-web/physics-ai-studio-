@@ -30,6 +30,26 @@ PLOTLY_EXPORT_CONFIG = {
     },
 }
 
+def _apply_project_settings(settings):
+    for key, value in settings.items():
+        st.session_state[key] = value
+    if "mesh_density_2d" in settings:
+        st.session_state["_mesh_density_applied"] = settings["mesh_density_2d"]
+    if "mesh_density_3d" in settings:
+        st.session_state["_mesh_density_3d_applied"] = settings["mesh_density_3d"]
+    if "heat3d_material" in settings:
+        st.session_state["_heat3d_material_applied"] = settings["heat3d_material"]
+
+
+def _autosave_simulation(label):
+    try:
+        key = "_autosave_project_id_" + label.lower().replace(" ", "_")
+        project = save_project("Autosave " + label, collect_settings(st.session_state), st.session_state.get(key))
+        st.session_state[key] = project["id"]
+    except Exception as exc:
+        st.warning("Autosave konfigurasi tidak berhasil: " + str(exc))
+
+
 def _selected_heatmap_point(event, x_values, y_values, field):
     """Return nearest grid-node data from a Plotly heatmap selection."""
     try:
@@ -339,8 +359,7 @@ with st.expander("📁 Daftar Proyek / Recent Simulations", expanded=False):
         if pcols[0].button("Buka", use_container_width=True, key="open_saved_project"):
             try:
                 project = load_project(selected_id)
-                for key, value in project["settings"].items():
-                    st.session_state[key] = value
+                _apply_project_settings(project["settings"])
                 st.session_state["_active_project_id"] = project["id"]
                 st.session_state["_active_project_name"] = project["name"]
                 st.success("Konfigurasi proyek dimuat.")
@@ -382,8 +401,7 @@ with st.expander("📁 Daftar Proyek / Recent Simulations", expanded=False):
         if st.button("Gunakan template", use_container_width=True, key="load_sample_model"):
             try:
                 sample = load_sample(sample_labels[sample_label])
-                for key, value in sample["settings"].items():
-                    st.session_state[key] = value
+                _apply_project_settings(sample["settings"])
                 st.session_state["_active_project_id"] = None
                 st.session_state["_active_project_name"] = sample["name"]
                 st.success(f"Template '{sample['name']}' diterapkan. Tekan Simpan proyek untuk menyimpannya sebagai proyek pribadi.")
@@ -668,6 +686,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             )
             st.caption(f"Batas stabilitas eksplisit untuk mesh dan material ini: dt ≤ {stable_dt3:.5g} s. Solver otomatis memilih langkah waktu aman berdasarkan batas tersebut dan input maksimum di atas.")
         if st.button("▶ Jalankan simulasi Heat Transfer 3D", key="run_heat3d", type="primary", disabled=not solver_allowed):
+            _autosave_simulation("3D")
             try:
                 if solver_mode_3d == "Steady-state":
                     solver_fn = solve_steady_state_3d
@@ -1252,6 +1271,7 @@ c3.metric("Konduktivitas", f"{k:g} W/m·K")
 c4.metric("Difusivitas termal", f"{k/(rho*cp):.3e} m²/s")
 
 if run:
+    _autosave_simulation("2D")
     st.session_state.pop("mesh_study_result", None)
     boundary = {"left": float(t_left), "right": float(t_right), "top": float(t_top), "bottom": float(t_bottom)}
     try:
