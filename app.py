@@ -51,6 +51,9 @@ def slider_with_stepper(label, minimum, maximum, step=1, key=None, value=None, o
     return value
 
 
+st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
+apply_theme()
+
 def _set_playing(key, value):
     st.session_state[key] = value
 
@@ -99,8 +102,7 @@ def render_transient_pill(snapshot_count, times, prefix):
     return int(st.session_state[index_key])
 
 
-st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
-apply_theme()
+
 st.markdown("""
 <style>
 .pas-unit-badge {
