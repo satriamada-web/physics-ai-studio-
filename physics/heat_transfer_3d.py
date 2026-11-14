@@ -51,7 +51,7 @@ def _grid(nx, ny, nz, lx, ly, lz):
 
 def solve_steady_state_3d(
     nx, ny, nz, lx, ly, lz, conductivity, heat_generation, boundary,
-    initial_temperature=25.0, tolerance=1e-6, max_iterations=30000,
+    initial_temperature=25.0, tolerance=1e-6, max_iterations=30000, progress_callback=None,
 ):
     """Selesaikan ∇²T + q_vol/k = 0 dengan iterasi Jacobi 3D."""
     _validate(nx, ny, nz, lx, ly, lz, conductivity, boundary)
@@ -75,6 +75,8 @@ def solve_steady_state_3d(
         ) / denominator
         _apply_boundaries(T, boundary)
         delta = float(np.max(np.abs(T[1:-1, 1:-1, 1:-1] - old[1:-1, 1:-1, 1:-1])))
+        if progress_callback and (iteration == 1 or iteration % max(1, max_iterations // 100) == 0 or delta < tolerance or iteration == max_iterations):
+            progress_callback(iteration, max_iterations, delta)
         if delta < tolerance:
             converged = True
             break
@@ -96,7 +98,7 @@ def stable_time_step_3d(conductivity, density, specific_heat, dx, dy, dz):
 def solve_transient_3d(
     nx, ny, nz, lx, ly, lz, conductivity, density, specific_heat,
     heat_generation, boundary, initial_temperature, total_time, max_dt,
-    snapshot_count=9,
+    snapshot_count=9, progress_callback=None,
 ):
     """Selesaikan konduksi panas transient eksplisit dan simpan snapshot terbatas."""
     _validate(nx, ny, nz, lx, ly, lz, conductivity, boundary)
@@ -133,6 +135,8 @@ def solve_transient_3d(
         if step in target_steps:
             snapshots.append(T.copy())
             snapshot_times.append(step * dt)
+        if progress_callback and (step == 1 or step % max(1, steps // 100) == 0 or step == steps):
+            progress_callback(step, steps, None)
     return {
         "temperature": T, "simulated_time": steps * dt, "dt_actual": dt,
         "dt_stability_limit": dt_limit, "steps": steps, "alpha": alpha,
