@@ -647,11 +647,12 @@ with st.expander("Buat domain ruangan dan ventilasi", expanded=False):
     st.caption("MVP ini membuat volume udara berbentuk balok dengan bukaan persegi panjang pada dua dinding berlawanan. Area dinding lainnya dianggap tertutup.")
     if st.button("Buat / perbarui Room Domain", key="build_room_domain", type="primary"):
         try:
-            st.session_state["room_domain_3d_result"] = create_room_domain(
+            st.session_state["room_domain_base_3d_result"] = create_room_domain(
                 float(room_lx), float(room_ly), float(room_h),
                 int(room_nx), int(room_ny), int(room_nz),
                 inlet_wall, opposite, float(opening_w), float(opening_h),
             )
+            st.session_state["room_domain_3d_result"] = st.session_state["room_domain_base_3d_result"]
             st.session_state.pop("wind_heat_3d_result", None)
             st.success("Room Domain berhasil dibuat.")
         except Exception as exc:
@@ -664,6 +665,45 @@ with st.expander("Buat domain ruangan dan ventilasi", expanded=False):
         room_metrics[2].metric("Sel inlet", f"{room_domain['inlet_cell_count']:,}")
         room_metrics[3].metric("Sel outlet", f"{room_domain['outlet_cell_count']:,}")
         st.caption(f"Domain {room_domain['nx']} × {room_domain['ny']} × {room_domain['nz']} sel · inlet {room_domain['inlet_wall']} → outlet {room_domain['outlet_wall']}.")
+
+
+with st.expander("Kurangi domain udara dengan geometri impor (solid obstacle)", expanded=False):
+    from physics.room_domain_3d import subtract_solid_obstacle
+    base_room = st.session_state.get("room_domain_base_3d_result") or st.session_state.get("room_domain_3d_result")
+    obstacle_geometry = st.session_state.get("geometry_3d_result")
+    if base_room is None:
+        st.info("Buat Room Domain terlebih dahulu.")
+    elif not obstacle_geometry or not obstacle_geometry.get("source_filename"):
+        st.info("Impor file OBJ/STL pada Geometry Builder terlebih dahulu.")
+    elif not obstacle_geometry.get("is_watertight"):
+        st.warning("Geometri obstacle harus tertutup/watertight. Model rangka terbuka belum dapat dipakai sebagai solid obstacle.")
+    else:
+        st.caption("Sel voxel yang berada di dalam solid impor akan dikeluarkan dari domain udara. Transformasi berlaku terhadap koordinat model dalam meter.")
+        transform_cols = st.columns(4)
+        with transform_cols[0]:
+            obstacle_scale = st.number_input("Skala solid", min_value=0.000001, max_value=1000.0, value=1.0, step=0.1, key="room_obstacle_scale")
+        with transform_cols[1]:
+            obstacle_tx = st.number_input("Geser X (m)", value=0.0, step=0.1, key="room_obstacle_tx")
+        with transform_cols[2]:
+            obstacle_ty = st.number_input("Geser Y (m)", value=0.0, step=0.1, key="room_obstacle_ty")
+        with transform_cols[3]:
+            obstacle_tz = st.number_input("Geser Z (m)", value=0.0, step=0.1, key="room_obstacle_tz")
+        st.caption(f"Solid terpilih: {obstacle_geometry['source_filename']} · {obstacle_geometry['face_count']:,} segitiga.")
+        if st.button("Potong solid dari domain udara", key="subtract_room_obstacle", type="primary"):
+            try:
+                st.session_state["room_domain_3d_result"] = subtract_solid_obstacle(
+                    base_room, obstacle_geometry["vertices"], obstacle_geometry["faces"],
+                    float(obstacle_scale), (float(obstacle_tx), float(obstacle_ty), float(obstacle_tz)),
+                )
+                st.session_state.pop("wind_heat_3d_result", None)
+                st.success("Domain udara diperbarui: sel yang berada di dalam solid impor telah dikeluarkan.")
+            except Exception as exc:
+                st.error(str(exc))
+        active_room = st.session_state.get("room_domain_3d_result")
+        if active_room and active_room.get("solid_cell_count") is not None:
+            st.metric("Sel solid yang dikeluarkan", f"{active_room['solid_cell_count']:,}")
+            st.metric("Sel udara tersisa", f"{active_room['active_cell_count']:,}")
+            st.warning("Ini adalah pemotongan occupancy berbasis voxel, bukan operasi CAD Boolean eksak. Dinding tipis dapat hilang jika lebih kecil dari ukuran sel. Kondisi no-slip dan kopling panas dinding belum diselesaikan.")
 
 st.divider()
 st.header("Wind & Heat Transport · MVP 2.0")
