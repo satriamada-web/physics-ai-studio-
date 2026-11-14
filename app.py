@@ -427,7 +427,29 @@ st.header("Geometry Builder 3D · MVP 1.4")
 st.caption("Buat dan putar geometri primitif 3D. Preview ini adalah surface mesh untuk visualisasi, belum merupakan mesh volume untuk solver FEM.")
 with st.expander("Geometry Builder 3D", expanded=False):
     from physics.geometry_3d import create_geometry
+    from physics.geometry_import import import_surface_mesh
 
+    st.markdown("**Import Geometry · OBJ / STL**")
+    st.caption("Unggah model permukaan 3D. Koordinat sumber dikalikan skala di bawah dan dikonversi ke meter.")
+    upload_col, scale_col = st.columns([2, 1])
+    with upload_col:
+        geometry_upload = st.file_uploader(
+            "File desain 3D", type=["obj", "stl"], key="geometry_surface_upload",
+            help="Format tahap awal: Wavefront OBJ dan STL ASCII/binary. Maksimum 15 MB."
+        )
+    with scale_col:
+        import_scale = st.number_input(
+            "Meter per unit file", min_value=0.000000001, max_value=1000.0,
+            value=1.0, step=0.001, format="%.6f", key="geometry_import_scale"
+        )
+    if st.button("Import dan periksa geometri", key="import_geometry_file", type="primary", disabled=geometry_upload is None):
+        st.session_state["geometry3d_job_id"] = submit_job(
+            "import-surface-geometry", import_surface_mesh,
+            geometry_upload.name, geometry_upload.getvalue(), float(import_scale),
+        )
+        st.session_state.pop("geometry_3d_error", None)
+    st.divider()
+    st.markdown("**Atau buat geometri primitif**")
     shape_col, size_col, resolution_col = st.columns([1, 1.4, 1])
     with shape_col:
         geometry_shape = st.selectbox(
@@ -501,6 +523,18 @@ with st.expander("Geometry Builder 3D", expanded=False):
         m1.metric("Titik vertex", geometry_result["vertex_count"])
         m2.metric("Segitiga permukaan", geometry_result["face_count"])
         m3.metric("Dimensi X × Y × Z", " × ".join(f"{v:.3g}" for v in geometry_result["dimensions_m"].values()) + " m")
+        if geometry_result.get("source_filename"):
+            st.markdown("**Geometry Inspector**")
+            g1, g2, g3 = st.columns(3)
+            g1.metric("Status permukaan", "Tertutup" if geometry_result.get("is_watertight") else "Terbuka / bermasalah")
+            g2.metric("Boundary edges", f"{geometry_result.get('boundary_edge_count', 0):,}")
+            g3.metric("Non-manifold edges", f"{geometry_result.get('nonmanifold_edge_count', 0):,}")
+            if geometry_result.get("is_watertight"):
+                st.success("Pemeriksaan topologi dasar: setiap edge dipakai oleh tepat dua segitiga. Ini indikasi permukaan tertutup, bukan jaminan mesh volume valid.")
+                if geometry_result.get("surface_volume_m3") is not None:
+                    st.caption(f"Volume tertutup dari orientasi segitiga (nilai absolut): {geometry_result['surface_volume_m3']:.6g} m³")
+            else:
+                st.warning("Permukaan belum watertight. Periksa lubang, tepi terbuka, atau edge non-manifold sebelum tahap volume meshing.")
         st.download_button(
             "⬇ Unduh geometri (OBJ)",
             "\n".join(
