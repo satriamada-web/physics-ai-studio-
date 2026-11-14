@@ -569,7 +569,7 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                 hover3 = "y=%{x:.4g} m<br>z=%{y:.4g} m<br>T=%{z:.3f} °C<extra></extra>"
             slice_fig3 = go.Figure(go.Heatmap(
                 z=slice_values3, x=slice_x3, y=slice_y3,
-                colorscale="Inferno", colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
+                colorscale="Inferno", colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}, "tickmode": "auto"},
                 hovertemplate=hover3,
             ))
             slice_fig3.update_layout(
@@ -1134,7 +1134,7 @@ else:
     heat_flux_fig.update_layout(
         title="Peta besar dan arah fluks panas",
         xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)",
-        height=680, annotations=arrow_annotations,
+        height=680, margin={"l": 12, "r": 82, "t": 52, "b": 12}, annotations=arrow_annotations,
     )
     st.plotly_chart(heat_flux_fig, use_container_width=True)
     st.caption("Komponen fluks: qx = −k·∂T/∂x dan qy = −k·∂T/∂y. Estimasi gradien memakai beda hingga numerik.")
