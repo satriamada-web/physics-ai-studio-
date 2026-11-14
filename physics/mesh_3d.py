@@ -5,9 +5,10 @@ Array fields use the solver convention (nz, ny, nx) = (z, y, x).
 """
 import math
 import numpy as np
+from physics.worker import check_cancel
 
 
-def create_structured_mesh(nx, ny, nz, lx, ly, lz, max_nodes=200_000):
+def create_structured_mesh(nx, ny, nz, lx, ly, lz, max_nodes=200_000, progress_callback=None, cancel_event=None):
     """Create a node-centred Cartesian grid spanning [0,L] on each axis.
 
     Parameters
@@ -51,9 +52,15 @@ def create_structured_mesh(nx, ny, nz, lx, ly, lz, max_nodes=200_000):
         )
 
     lx, ly, lz = clean_lengths["lx"], clean_lengths["ly"], clean_lengths["lz"]
+    check_cancel(cancel_event)
     x = np.linspace(0.0, lx, nx)
+    if progress_callback: progress_callback(1, 3, None)
+    check_cancel(cancel_event)
     y = np.linspace(0.0, ly, ny)
+    if progress_callback: progress_callback(2, 3, None)
+    check_cancel(cancel_event)
     z = np.linspace(0.0, lz, nz)
+    if progress_callback: progress_callback(3, 3, None)
     return {
         "x": x,
         "y": y,
