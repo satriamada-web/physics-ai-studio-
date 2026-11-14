@@ -108,6 +108,8 @@ def import_preset():
         for key, (low, high) in ranges.items():
             if not low <= settings[key] <= high:
                 raise ValueError(f"Nilai {key} di luar rentang.")
+        if not isinstance(settings["nx"], int) or not isinstance(settings["ny"], int):
+            raise ValueError("Jumlah grid harus berupa bilangan bulat.")
         if settings["nx"] % 2 == 0 or settings["ny"] % 2 == 0:
             raise ValueError("Jumlah grid harus ganjil.")
         name = payload.get("name", "Imported preset")
@@ -141,6 +143,7 @@ with st.sidebar:
     st.caption("Undo/Redo menyimpan hingga 50 perubahan parameter.")
     st.divider()
     st.header("Preset konfigurasi")
+    st.caption("Preset tersimpan sementara selama sesi aplikasi. Ekspor JSON agar dapat digunakan kembali di sesi lain.")
     st.text_input("Nama preset", key="preset_name_input", placeholder="Contoh: Aluminium 2D")
     st.button("💾 Simpan konfigurasi saat ini", use_container_width=True, on_click=save_preset)
     _presets = st.session_state.setdefault("_user_presets", {})
