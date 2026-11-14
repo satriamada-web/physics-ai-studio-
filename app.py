@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
@@ -10,10 +11,59 @@ from physics.reporting import build_heat_transfer_pdf
 from physics.materials import MATERIALS
 from physics.verification import run_verification_suite
 
+
+def number_input_with_unit(label, *args, **kwargs):
+    """Render a numeric input with a compact unit badge on its right."""
+    match = re.search(r"\\(([^()]*)\\)\\s*$", str(label))
+    unit = match.group(1) if match else ("iterasi" if "iterasi" in str(label).lower() else "node" if "node" in str(label).lower() else "—")
+    clean_label = str(label)[:match.start()].rstrip() if match else str(label)
+    input_col, unit_col = st.columns([5.8, 1.05], vertical_alignment="bottom")
+    with input_col:
+        value = st.number_input(clean_label, *args, **kwargs)
+    with unit_col:
+        st.markdown(f'<div class="pas-unit-badge">{unit}</div>', unsafe_allow_html=True)
+    return value
+
+
+def _bump_slider_value(key, delta, step, minimum, maximum, callback=None):
+    current = st.session_state.get(key, minimum)
+    st.session_state[key] = max(minimum, min(maximum, current + delta * step))
+    if callback:
+        callback()
+
+
+def slider_with_stepper(label, minimum, maximum, step=1, key=None, on_change=None, help=None):
+    """Slider plus compact +/- controls sharing one session-state value."""
+    if key not in st.session_state:
+        st.session_state[key] = minimum
+    slider_col, minus_col, plus_col = st.columns([7, 0.7, 0.7], vertical_alignment="bottom")
+    with slider_col:
+        value = st.slider(label, min_value=minimum, max_value=maximum,
+                          step=step, key=key, on_change=on_change, help=help)
+    with minus_col:
+        st.button("−", key=f"{key}_step_down", disabled=value <= minimum,
+                  on_click=_bump_slider_value,
+                  args=(key, -1, step, minimum, maximum, on_change), use_container_width=True)
+    with plus_col:
+        st.button("+", key=f"{key}_step_up", disabled=value >= maximum,
+                  on_click=_bump_slider_value,
+                  args=(key, 1, step, minimum, maximum, on_change), use_container_width=True)
+    return value
+
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 apply_theme()
 st.markdown("""
 <style>
+.pas-unit-badge {
+  min-height:38px; display:flex; align-items:center; justify-content:center;
+  margin:0 0 2px; padding:0 7px; border:1px solid rgba(130,160,190,.24);
+  border-radius:9px; background:rgba(56,200,242,.10); color:#8EDFF5;
+  font-size:.72rem; font-weight:750; white-space:nowrap; overflow:hidden;
+}
+div[data-testid="stTabs"] { margin-top:.35rem; }
+div[data-testid="stTabs"] button { font-size:.78rem !important; font-weight:650 !important; }
+div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:5px; flex-wrap:wrap; }
+div[data-testid="stTabs"] button[role="tab"] { border-radius:9px 9px 0 0; padding:7px 11px; }
 /* Viewport-first workstation layout */
 [data-testid="stSidebar"] { display:none !important; }
 [data-testid="stMainBlockContainer"] { max-width: 100% !important; padding-left: 1.2rem !important; padding-right: 1.2rem !important; padding-bottom: 20vh !important; }
@@ -104,29 +154,29 @@ with st.expander("Geometry Builder 3D", expanded=False):
     dimensions = {}
     with size_col:
         if geometry_shape == "Kubus":
-            dimensions["sisi"] = st.number_input(
+            dimensions["sisi"] = number_input_with_unit(
                 "Panjang sisi (m)", min_value=0.001, max_value=10.0,
                 value=0.10, step=0.01, format="%.3f", key="geometry_cube_side"
             )
         elif geometry_shape == "Balok":
-            dimensions["panjang"] = st.number_input(
+            dimensions["panjang"] = number_input_with_unit(
                 "Panjang X (m)", min_value=0.001, max_value=10.0,
                 value=0.20, step=0.01, format="%.3f", key="geometry_block_x"
             )
-            dimensions["lebar"] = st.number_input(
+            dimensions["lebar"] = number_input_with_unit(
                 "Lebar Y (m)", min_value=0.001, max_value=10.0,
                 value=0.12, step=0.01, format="%.3f", key="geometry_block_y"
             )
-            dimensions["tinggi"] = st.number_input(
+            dimensions["tinggi"] = number_input_with_unit(
                 "Tinggi Z (m)", min_value=0.001, max_value=10.0,
                 value=0.08, step=0.01, format="%.3f", key="geometry_block_z"
             )
         else:
-            dimensions["radius"] = st.number_input(
+            dimensions["radius"] = number_input_with_unit(
                 "Radius (m)", min_value=0.001, max_value=5.0,
                 value=0.05, step=0.005, format="%.3f", key="geometry_cylinder_radius"
             )
-            dimensions["tinggi"] = st.number_input(
+            dimensions["tinggi"] = number_input_with_unit(
                 "Tinggi (m)", min_value=0.001, max_value=10.0,
                 value=0.15, step=0.01, format="%.3f", key="geometry_cylinder_height"
             )
@@ -189,14 +239,14 @@ with st.expander("Buka 3D Mesh Engine", expanded=False):
 
     mesh_cols = st.columns(3)
     with mesh_cols[0]:
-        mesh_nx = st.number_input("Node arah X", min_value=2, max_value=58, value=11, step=1, key="mesh3d_nx")
-        mesh_lx = st.number_input("Panjang domain X (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_lx")
+        mesh_nx = slider_with_stepper("Node arah X", 2, 58, step=1, key="mesh3d_nx")
+        mesh_lx = number_input_with_unit("Panjang domain X (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_lx")
     with mesh_cols[1]:
-        mesh_ny = st.number_input("Node arah Y", min_value=2, max_value=58, value=11, step=1, key="mesh3d_ny")
-        mesh_ly = st.number_input("Panjang domain Y (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_ly")
+        mesh_ny = slider_with_stepper("Node arah Y", 2, 58, step=1, key="mesh3d_ny")
+        mesh_ly = number_input_with_unit("Panjang domain Y (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_ly")
     with mesh_cols[2]:
-        mesh_nz = st.number_input("Node arah Z", min_value=2, max_value=58, value=11, step=1, key="mesh3d_nz")
-        mesh_lz = st.number_input("Panjang domain Z (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_lz")
+        mesh_nz = slider_with_stepper("Node arah Z", 2, 58, step=1, key="mesh3d_nz")
+        mesh_lz = number_input_with_unit("Panjang domain Z (m)", min_value=0.001, max_value=10.0, value=0.10, step=0.01, format="%.3f", key="mesh3d_lz")
     st.caption("Batas aman saat ini: maksimum 200.000 node per grid. Preview hanya menampilkan sampel node agar browser tetap ringan.")
     if st.button("Buat / perbarui structured mesh", key="build_structured_mesh_3d", type="primary"):
         try:
@@ -288,41 +338,43 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             "Mode simulasi 3D", ["Steady-state", "Transient"],
             horizontal=True, key="heat3d_mode",
         )
-        mat_cols = st.columns(4)
-        with mat_cols[0]:
-            k3 = st.number_input("Konduktivitas k (W/m·K)", min_value=0.01, max_value=2000.0, value=16.2, step=1.0, key="heat3d_k")
-        with mat_cols[1]:
-            rho3 = st.number_input("Massa jenis ρ (kg/m³)", min_value=1.0, max_value=25000.0, value=8000.0, step=100.0, key="heat3d_rho")
-        with mat_cols[2]:
-            cp3 = st.number_input("Kalor jenis cp (J/kg·K)", min_value=1.0, max_value=10000.0, value=500.0, step=10.0, key="heat3d_cp")
-        with mat_cols[3]:
-            q3 = st.number_input("Sumber panas (W/m³)", min_value=0.0, max_value=1.0e8, value=0.0, step=1000.0, key="heat3d_q")
-        st.markdown("**Kondisi batas temperatur — enam sisi domain**")
-        bc_cols = st.columns(3)
-        with bc_cols[0]:
-            bxmin = st.number_input("X minimum (°C)", value=100.0, step=5.0, key="heat3d_bxmin")
-            bxmax = st.number_input("X maksimum (°C)", value=25.0, step=5.0, key="heat3d_bxmax")
-        with bc_cols[1]:
-            bymin = st.number_input("Y minimum (°C)", value=25.0, step=5.0, key="heat3d_bymin")
-            bymax = st.number_input("Y maksimum (°C)", value=25.0, step=5.0, key="heat3d_bymax")
-        with bc_cols[2]:
-            bzmin = st.number_input("Z minimum (°C)", value=25.0, step=5.0, key="heat3d_bzmin")
-            bzmax = st.number_input("Z maksimum (°C)", value=25.0, step=5.0, key="heat3d_bzmax")
-        initial3 = st.number_input("Temperatur awal domain (°C)", value=25.0, step=5.0, key="heat3d_initial")
-        if solver_mode_3d == "Steady-state":
-            tol3 = st.select_slider(
-                "Toleransi perubahan maksimum (°C)",
-                options=[1e-4, 1e-5, 1e-6, 1e-7], value=1e-5,
-                format_func=lambda v: f"{v:.0e}", key="heat3d_tolerance",
-            )
-            iter3 = st.number_input("Iterasi maksimum", min_value=100, max_value=10000, value=3000, step=100, key="heat3d_iterations")
-            total3 = None
-            maxdt3 = None
-        else:
-            total3 = st.number_input("Durasi simulasi (detik)", min_value=0.001, max_value=100.0, value=0.1, step=0.01, format="%.4f", key="heat3d_total_time")
-            maxdt3 = st.number_input("Batas langkah waktu maksimum (detik)", min_value=1e-8, max_value=1.0, value=0.001, format="%.6g", key="heat3d_max_dt")
-            tol3 = None
-            iter3 = None
+        material_tab3, boundary_tab3, solver_tab3 = st.tabs(
+            ["Material & Source", "Boundary Conditions", "Solver Controls"]
+        )
+        with material_tab3:
+            mat_cols = st.columns(2)
+            with mat_cols[0]:
+                k3 = number_input_with_unit("Konduktivitas k (W/m·K)", min_value=0.01, max_value=2000.0, value=16.2, step=1.0, key="heat3d_k")
+                rho3 = number_input_with_unit("Massa jenis ρ (kg/m³)", min_value=1.0, max_value=25000.0, value=8000.0, step=100.0, key="heat3d_rho")
+            with mat_cols[1]:
+                cp3 = number_input_with_unit("Kalor jenis cp (J/kg·K)", min_value=1.0, max_value=10000.0, value=500.0, step=10.0, key="heat3d_cp")
+                q3 = number_input_with_unit("Sumber panas (W/m³)", min_value=0.0, max_value=1.0e8, value=0.0, step=1000.0, key="heat3d_q")
+        with boundary_tab3:
+            st.caption("Enam sisi domain menggunakan temperatur tetap (Dirichlet).")
+            bc_cols = st.columns(3)
+            with bc_cols[0]:
+                bxmin = number_input_with_unit("X minimum (°C)", value=100.0, step=5.0, key="heat3d_bxmin")
+                bxmax = number_input_with_unit("X maksimum (°C)", value=25.0, step=5.0, key="heat3d_bxmax")
+            with bc_cols[1]:
+                bymin = number_input_with_unit("Y minimum (°C)", value=25.0, step=5.0, key="heat3d_bymin")
+                bymax = number_input_with_unit("Y maksimum (°C)", value=25.0, step=5.0, key="heat3d_bymax")
+            with bc_cols[2]:
+                bzmin = number_input_with_unit("Z minimum (°C)", value=25.0, step=5.0, key="heat3d_bzmin")
+                bzmax = number_input_with_unit("Z maksimum (°C)", value=25.0, step=5.0, key="heat3d_bzmax")
+            initial3 = number_input_with_unit("Temperatur awal domain (°C)", value=25.0, step=5.0, key="heat3d_initial")
+        with solver_tab3:
+            if solver_mode_3d == "Steady-state":
+                tol3 = st.select_slider("Toleransi perubahan maksimum (°C)",
+                    options=[1e-4, 1e-5, 1e-6, 1e-7], value=1e-5,
+                    format_func=lambda v: f"{v:.0e}", key="heat3d_tolerance")
+                iter3 = number_input_with_unit("Iterasi maksimum", min_value=100, max_value=10000, value=3000, step=100, key="heat3d_iterations")
+                total3 = None
+                maxdt3 = None
+            else:
+                total3 = number_input_with_unit("Durasi simulasi (detik)", min_value=0.001, max_value=100.0, value=0.1, step=0.01, format="%.4f", key="heat3d_total_time")
+                maxdt3 = number_input_with_unit("Batas langkah waktu maksimum (detik)", min_value=1e-8, max_value=1.0, value=0.001, format="%.6g", key="heat3d_max_dt")
+                tol3 = None
+                iter3 = None
 
         boundary3 = {
             "x_min": float(bxmin), "x_max": float(bxmax),
@@ -749,77 +801,91 @@ st.session_state.setdefault("_settings_redo", [])
 with st.container(key="bottom_sheet"):
     st.markdown('<div class="sheet-grip"></div><div class="sheet-heading">CONTROL DECK <span>PARAMETERS · STUDY · RUN</span></div>', unsafe_allow_html=True)
     with st.expander("⚙ Buka panel pengaturan simulasi", expanded=False):
-        st.header("Pengaturan")
-        h1, h2 = st.columns(2)
-        h1.button("↶ Undo", use_container_width=True, disabled=not st.session_state["_settings_undo"], on_click=undo_settings)
-        h2.button("↷ Redo", use_container_width=True, disabled=not st.session_state["_settings_redo"], on_click=redo_settings)
-        st.button("⟲ Default Settings", use_container_width=True, on_click=reset_settings)
-        st.caption("Undo/Redo menyimpan hingga 50 perubahan parameter.")
-        st.divider()
-        st.header("Preset konfigurasi")
-        st.caption("Preset tersimpan sementara selama sesi aplikasi. Ekspor JSON agar dapat digunakan kembali di sesi lain.")
-        st.text_input("Nama preset", key="preset_name_input", placeholder="Contoh: Aluminium 2D")
-        st.button("💾 Simpan konfigurasi saat ini", use_container_width=True, on_click=save_preset)
-        _presets = st.session_state.setdefault("_user_presets", {})
-        if _presets:
-            st.selectbox("Preset tersimpan", list(_presets.keys()), key="_preset_selected")
-            st.button("Terapkan preset", use_container_width=True, on_click=load_preset)
-            st.button("Hapus preset terpilih", use_container_width=True, on_click=delete_preset)
-            _selected = st.session_state.get("_preset_selected")
-            if _selected in _presets:
-                st.download_button(
-                    "⬇ Ekspor preset JSON",
-                    json.dumps({"name": _selected, "settings": _presets[_selected]}, indent=2).encode("utf-8"),
-                    file_name=f"physics_ai_preset_{_selected.lower().replace(' ', '_')}.json",
-                    mime="application/json",
-                    use_container_width=True,
-                )
-        st.file_uploader("Impor preset JSON", type=["json"], key="preset_upload")
-        st.button("Impor file preset", use_container_width=True, on_click=import_preset)
-        if st.session_state.get("_preset_message"):
-            st.caption(st.session_state["_preset_message"])
-        st.divider()
-        st.header("1 · Model fisika")
-        mode = st.selectbox("Jenis simulasi", ["Steady-state", "Transient"], key="mode", on_change=record_settings_change)
-        nx = st.slider("Jumlah grid arah X", 11, 101, step=2, key="nx", on_change=record_settings_change)
-        ny = st.slider("Jumlah grid arah Y", 11, 101, step=2, key="ny", on_change=record_settings_change)
-        st.header("Pengaturan solver")
-        solver_tolerance = st.number_input("Toleransi konvergensi", min_value=1e-10, max_value=1e-2, step=1e-7, format="%.1e", key="solver_tolerance", on_change=record_settings_change, help="Batas perubahan maksimum temperatur antar iterasi Jacobi, dalam °C.")
-        solver_max_iterations = st.number_input("Iterasi maksimum", min_value=1000, max_value=100000, step=1000, key="solver_max_iterations", on_change=record_settings_change)
-        st.header("2 · Geometri")
-        lx = st.number_input("Panjang X (m)", 0.01, 2.0, step=0.01, format="%.3f", key="lx", on_change=record_settings_change)
-        ly = st.number_input("Panjang Y (m)", 0.01, 2.0, step=0.01, format="%.3f", key="ly", on_change=record_settings_change)
-        st.header("3 · Sifat material")
-        material_name = st.selectbox(
-            "Pilih material",
-            list(MATERIALS.keys()),
-            key="material_name",
-            on_change=select_material,
+        st.header("Control Deck · Parameter simulasi 2D")
+        st.caption("Atur model, geometri, material, kondisi batas, dan solver melalui tab berikut.")
+        preset_tab, model_tab, material_tab, boundary_tab, solver_tab = st.tabs(
+            ["Preset & Riwayat", "Model & Mesh", "Material & Geometri", "Boundary Conditions", "Solver & Run"]
         )
-        material_info = MATERIALS[material_name]
-        st.caption(material_info["description"])
-        if material_name != "Custom":
-            st.caption("Sumber data: " + material_info["reference"])
-        k = st.number_input("Konduktivitas termal k (W/m·K)", 0.01, 2000.0, step=1.0, key="k", on_change=record_settings_change)
-        rho = st.number_input("Massa jenis (kg/m³)", 1.0, 25000.0, step=100.0, key="rho", on_change=record_settings_change)
-        cp = st.number_input("Kalor jenis cp (J/kg·K)", 1.0, 10000.0, step=10.0, key="cp", on_change=record_settings_change)
-        st.header("4 · Kondisi batas")
-        st.caption("Temperatur pada keempat sisi pelat dianggap tetap.")
-        t_left = st.number_input("Sisi kiri (°C)", step=5.0, key="t_left", on_change=record_settings_change)
-        t_right = st.number_input("Sisi kanan (°C)", step=5.0, key="t_right", on_change=record_settings_change)
-        t_top = st.number_input("Sisi atas (°C)", step=5.0, key="t_top", on_change=record_settings_change)
-        t_bottom = st.number_input("Sisi bawah (°C)", step=5.0, key="t_bottom", on_change=record_settings_change)
-        t_initial = st.number_input("Temperatur awal (°C)", step=5.0, key="t_initial", on_change=record_settings_change)
-        st.header("5 · Sumber panas")
-        q_vol = st.number_input("Pembangkitan panas volumetrik (W/m³)", 0.0, 1.0e8, step=1000.0, key="q_vol", on_change=record_settings_change)
-        total_time = st.number_input("Lama simulasi (detik)", 0.01, 10000.0, step=1.0, key="total_time", on_change=record_settings_change) if mode == "Transient" else None
-        if mode == "Transient":
-            st.subheader("Titik pemantauan temperatur")
-            probe_x_index = st.slider("Indeks titik X", 0, nx - 1, nx // 2, help="0 = sisi kiri; indeks maksimum = sisi kanan.")
-            probe_y_index = st.slider("Indeks titik Y", 0, ny - 1, ny // 2, help="0 = sisi bawah; indeks maksimum = sisi atas.")
-        else:
-            probe_x_index, probe_y_index = nx // 2, ny // 2
-        run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True) or toolbar_run
+        with preset_tab:
+            h1, h2 = st.columns(2)
+            h1.button("↶ Undo", use_container_width=True, disabled=not st.session_state["_settings_undo"], on_click=undo_settings)
+            h2.button("↷ Redo", use_container_width=True, disabled=not st.session_state["_settings_redo"], on_click=redo_settings)
+            st.button("⟲ Default Settings", use_container_width=True, on_click=reset_settings)
+            st.caption("Undo/Redo menyimpan hingga 50 perubahan parameter.")
+            st.divider()
+            st.text_input("Nama preset", key="preset_name_input", placeholder="Contoh: Aluminium 2D")
+            st.button("💾 Simpan konfigurasi saat ini", use_container_width=True, on_click=save_preset)
+            _presets = st.session_state.setdefault("_user_presets", {})
+            if _presets:
+                st.selectbox("Preset tersimpan", list(_presets.keys()), key="_preset_selected")
+                st.button("Terapkan preset", use_container_width=True, on_click=load_preset)
+                st.button("Hapus preset terpilih", use_container_width=True, on_click=delete_preset)
+                _selected = st.session_state.get("_preset_selected")
+                if _selected in _presets:
+                    st.download_button("⬇ Ekspor preset JSON",
+                        json.dumps({"name": _selected, "settings": _presets[_selected]}, indent=2).encode("utf-8"),
+                        file_name=f"physics_ai_preset_{_selected.lower().replace(' ', '_')}.json",
+                        mime="application/json", use_container_width=True)
+            st.file_uploader("Impor preset JSON", type=["json"], key="preset_upload")
+            st.button("Impor file preset", use_container_width=True, on_click=import_preset)
+            if st.session_state.get("_preset_message"):
+                st.caption(st.session_state["_preset_message"])
+        with model_tab:
+            mode = st.selectbox("Jenis simulasi", ["Steady-state", "Transient"], key="mode", on_change=record_settings_change)
+            st.markdown("**Resolusi grid 2D**")
+            nx = slider_with_stepper("Jumlah grid arah X", 11, 101, step=2, key="nx", on_change=record_settings_change)
+            ny = slider_with_stepper("Jumlah grid arah Y", 11, 101, step=2, key="ny", on_change=record_settings_change)
+            st.caption(f"Grid aktif: {nx} × {ny} node.")
+        with material_tab:
+            st.markdown("**Geometri domain**")
+            geo_a, geo_b = st.columns(2)
+            with geo_a:
+                lx = number_input_with_unit("Panjang X (m)", 0.01, 2.0, step=0.01, format="%.3f", key="lx", on_change=record_settings_change)
+            with geo_b:
+                ly = number_input_with_unit("Panjang Y (m)", 0.01, 2.0, step=0.01, format="%.3f", key="ly", on_change=record_settings_change)
+            st.divider()
+            material_name = st.selectbox("Pilih material", list(MATERIALS.keys()), key="material_name", on_change=select_material)
+            material_info = MATERIALS[material_name]
+            st.caption(material_info["description"])
+            if material_name != "Custom":
+                st.caption("Sumber data: " + material_info["reference"])
+            mat_a, mat_b, mat_c = st.columns(3)
+            with mat_a:
+                k = number_input_with_unit("Konduktivitas termal k (W/m·K)", 0.01, 2000.0, step=1.0, key="k", on_change=record_settings_change)
+            with mat_b:
+                rho = number_input_with_unit("Massa jenis (kg/m³)", 1.0, 25000.0, step=100.0, key="rho", on_change=record_settings_change)
+            with mat_c:
+                cp = number_input_with_unit("Kalor jenis cp (J/kg·K)", 1.0, 10000.0, step=10.0, key="cp", on_change=record_settings_change)
+        with boundary_tab:
+            st.caption("Temperatur pada keempat sisi pelat dianggap tetap (Dirichlet).")
+            bc_a, bc_b = st.columns(2)
+            with bc_a:
+                t_left = number_input_with_unit("Sisi kiri (°C)", step=5.0, key="t_left", on_change=record_settings_change)
+                t_top = number_input_with_unit("Sisi atas (°C)", step=5.0, key="t_top", on_change=record_settings_change)
+            with bc_b:
+                t_right = number_input_with_unit("Sisi kanan (°C)", step=5.0, key="t_right", on_change=record_settings_change)
+                t_bottom = number_input_with_unit("Sisi bawah (°C)", step=5.0, key="t_bottom", on_change=record_settings_change)
+            t_initial = number_input_with_unit("Temperatur awal (°C)", step=5.0, key="t_initial", on_change=record_settings_change)
+            q_vol = number_input_with_unit("Pembangkitan panas volumetrik (W/m³)", 0.0, 1.0e8, step=1000.0, key="q_vol", on_change=record_settings_change)
+            if mode == "Transient":
+                total_time = number_input_with_unit("Lama simulasi (detik)", 0.01, 10000.0, step=1.0, key="total_time", on_change=record_settings_change)
+                st.markdown("**Titik pemantauan temperatur**")
+                probe_a, probe_b = st.columns(2)
+                with probe_a:
+                    probe_x_index = st.slider("Indeks titik X", 0, nx - 1, nx // 2, key="probe_x_2d", help="0 = sisi kiri; indeks maksimum = sisi kanan.")
+                with probe_b:
+                    probe_y_index = st.slider("Indeks titik Y", 0, ny - 1, ny // 2, key="probe_y_2d", help="0 = sisi bawah; indeks maksimum = sisi atas.")
+            else:
+                total_time = None
+                probe_x_index, probe_y_index = nx // 2, ny // 2
+        with solver_tab:
+            solver_a, solver_b = st.columns(2)
+            with solver_a:
+                solver_tolerance = number_input_with_unit("Toleransi konvergensi (°C)", min_value=1e-10, max_value=1e-2, step=1e-7, format="%.1e", key="solver_tolerance", on_change=record_settings_change, help="Batas perubahan maksimum temperatur antar iterasi Jacobi.")
+            with solver_b:
+                solver_max_iterations = number_input_with_unit("Iterasi maksimum", min_value=1000, max_value=100000, step=1000, key="solver_max_iterations", on_change=record_settings_change)
+            st.caption("Steady-state memakai iterasi Jacobi; transient memakai skema eksplisit dengan batas stabilitas waktu.")
+            run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True) or toolbar_run
 
 with st.expander("✅ Verifikasi numerik otomatis", expanded=False):
     st.write("Jalankan lima kasus uji untuk memeriksa implementasi numerik dasar dan pencatatan probe transient. Pengujian ini memeriksa implementasi numerik dasar, bukan validasi eksperimen.")
