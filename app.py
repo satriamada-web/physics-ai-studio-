@@ -470,7 +470,8 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             )
             try:
                 energy_args3 = (
-                    viewT3, st.session_state.get("heat3d_result_k", float(k3)),
+                    T3 if result3["mode"] == "Transient" else viewT3,
+                    st.session_state.get("heat3d_result_k", float(k3)),
                     st.session_state.get("heat3d_result_rho", float(rho3)),
                     st.session_state.get("heat3d_result_cp", float(cp3)),
                     st.session_state.get("heat3d_result_q", float(q3)),
