@@ -21,7 +21,8 @@ def solve_wind_heat_transport(
     wind_elevation_deg, inlet_temperature, initial_temperature,
     air_density=1.2, air_specific_heat=1005.0, air_conductivity=0.026,
     total_time=10.0, heat_source=0.0, snapshot_count=9,
-    progress_callback=None, cancel_event=None,
+    progress_callback=None, cancel_event=None, inlet_mask_zyx=None,
+    outlet_mask_zyx=None,
 ):
     """Transient advection-diffusion of temperature in a voxelized air domain.
 
@@ -58,13 +59,23 @@ def solve_wind_heat_transport(
         raise ValueError("Simulasi membutuhkan lebih dari 100.000 langkah. Kurangi durasi/kecepatan atau tingkatkan ukuran sel.")
     dt = total_time / steps
     nz, ny, nx = mask.shape
-    inlet = np.zeros_like(mask)
-    if ux > 0: inlet[:, :, 0] |= mask[:, :, 0]
-    elif ux < 0: inlet[:, :, -1] |= mask[:, :, -1]
-    if uy > 0: inlet[:, 0, :] |= mask[:, 0, :]
-    elif uy < 0: inlet[:, -1, :] |= mask[:, -1, :]
-    if uz > 0: inlet[0, :, :] |= mask[0, :, :]
-    elif uz < 0: inlet[-1, :, :] |= mask[-1, :, :]
+    if inlet_mask_zyx is None:
+        inlet = np.zeros_like(mask)
+        if ux > 0: inlet[:, :, 0] |= mask[:, :, 0]
+        elif ux < 0: inlet[:, :, -1] |= mask[:, :, -1]
+        if uy > 0: inlet[:, 0, :] |= mask[:, 0, :]
+        elif uy < 0: inlet[:, -1, :] |= mask[:, -1, :]
+        if uz > 0: inlet[0, :, :] |= mask[0, :, :]
+        elif uz < 0: inlet[-1, :, :] |= mask[-1, :, :]
+    else:
+        inlet = np.asarray(inlet_mask_zyx, dtype=bool)
+        if inlet.shape != mask.shape or np.any(inlet & ~mask):
+            raise ValueError("Mask inlet harus sesuai bentuk domain dan berada di dalam domain aktif.")
+    outlet = np.zeros_like(mask) if outlet_mask_zyx is None else np.asarray(outlet_mask_zyx, dtype=bool)
+    if outlet.shape != mask.shape or np.any(outlet & ~mask):
+        raise ValueError("Mask outlet harus sesuai bentuk domain dan berada di dalam domain aktif.")
+    if np.any(inlet & outlet):
+        raise ValueError("Area inlet dan outlet tidak boleh bertumpuk.")
     if wind_speed > 0 and not inlet.any():
         raise ValueError("Tidak ditemukan sel inlet pada sisi hulu domain. Periksa geometri atau arah angin.")
     T = np.full(mask.shape, float(initial_temperature), dtype=float)
@@ -137,7 +148,7 @@ def solve_wind_heat_transport(
         "velocity_m_s": velocity.tolist(), "wind_speed_m_s": float(wind_speed),
         "wind_azimuth_deg": float(wind_azimuth_deg),
         "wind_elevation_deg": float(wind_elevation_deg),
-        "inlet_cell_count": int(inlet.sum()), "active_cell_count": int(mask.sum()),
+        "inlet_cell_count": int(inlet.sum()), "outlet_cell_count": int(outlet.sum()), "active_cell_count": int(mask.sum()),
         "alpha_m2_s": float(alpha), "converged": True,
         "model_note": "Prescribed-velocity advection-diffusion; no Navier-Stokes, pressure, turbulence, or-slip wall model.",
     }
