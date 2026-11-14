@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "sample-copper-transient-2d",
+  "name": "Copper Plate · 2D Transient",
+  "description": "Eksperimen penyebaran panas sementara pada pelat tembaga.",
+  "settings": {
+    "mode": "Transient",
+    "material_name": "Tembaga OFE C10100",
+    "nx": 41,
+    "ny": 41,
+    "lx": 0.1,
+    "ly": 0.1,
+    "k": 391,
+    "rho": 8940,
+    "cp": 385,
+    "t_left": 100,
+    "t_right": 25,
+    "t_top": 25,
+    "t_bottom": 25,
+    "t_initial": 25,
+    "q_vol": 0,
+    "total_time": 10,
+    "solver_tolerance": 0.000001,
+    "solver_max_iterations": 30000,
+    "mesh_density_2d": "Normal / Sedang",
+    "probe_x_2d": 20,
+    "probe_y_2d": 20
+  }
+}
