@@ -258,3 +258,26 @@ waktu; karena itu residu energi merupakan indikator diagnostik, bukan bukti
 konservasi lokal, validasi eksperimen, atau jaminan akurasi. Analisis transient
 menggunakan rentang penuh dari snapshot awal hingga akhir simulasi, terlepas dari
 snapshot yang sedang dipilih untuk visualisasi.
+
+
+## Android APK — MVP 0.1
+
+Repository ini kini juga berisi proyek Android native minimal di folder `app/`.
+Aplikasi Android memakai WebView aman untuk membuka server Streamlit Physics AI Studio;
+mesin simulasi tetap berjalan di server cloud, bukan dihitung secara lokal di HP.
+
+### Build APK dari GitHub
+1. Buka tab **Actions** pada repository.
+2. Pilih workflow **Build Physics AI Studio APK**.
+3. Tekan **Run workflow** pada branch `main`.
+4. Tunggu sampai workflow selesai dengan status hijau.
+5. Buka hasil workflow dan unduh artifact `physics-ai-studio-debug-apk`.
+6. Ekstrak ZIP artifact, lalu pasang `app-debug.apk di Android. Android mungkin meminta izin instalasi dari sumber tersebut.
+
+Saat pertama kali dibuka, masukkan URL HTTPS aplikasi Streamlit yang aktif. URL disimpan di perangkat dan dapat diganti melalui menu titik tiga.
+
+### Batasan APK MVP 0.1
+- Membutuhkan koneksi internet dan server Streamlit aktif.
+- APK debug ditujukan untuk pengujian; belum merupakan rilis Play Store yang ditandatangani dengan kunci produksi.
+- File unduhan dari WebView bergantung pada dukungan tautan unduh server/browser.
+- Solver 2D/3D tetap memakai backend Python yang sudah ada.
