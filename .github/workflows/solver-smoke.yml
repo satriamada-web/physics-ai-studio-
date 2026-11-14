@@ -28,6 +28,7 @@ jobs:
           from physics.mesh_3d import create_structured_mesh
           from physics.volume_mesh_3d import create_voxel_volume_mesh
           from physics.wind_heat_3d import solve_wind_heat_transport
+          from physics.room_domain_3d import create_room_domain
           from physics.worker import submit_job, get_job, cancel_job
 
           b2 = {"left": 25.0, "right": 25.0, "top": 25.0, "bottom": 25.0}
@@ -57,6 +58,23 @@ jobs:
           assert wind["inlet_cell_count"] == 64
           assert np.allclose(wind["temperature"][:, :, 0], 40.0)
           assert np.nanmax(wind["temperature"]) > 20.0
+
+          room = create_room_domain(
+              6.0, 4.0, 3.0, 12, 8, 6,
+              "x_min", "x_max", 0.5, 0.5,
+          )
+          assert room["inside_mask_zyx"].shape == (6, 8, 12)
+          assert room["inlet_cell_count"] > 0
+          assert room["outlet_cell_count"] == room["inlet_cell_count"]
+          room_wind = solve_wind_heat_transport(
+              room["inside_mask_zyx"], room["dx"], room["dy"], room["dz"],
+              1.0, 0.0, 0.0, 38.0, 24.0, total_time=0.05,
+              inlet_mask_zyx=room["inlet_mask_zyx"],
+              outlet_mask_zyx=room["outlet_mask_zyx"],
+          )
+          assert room_wind["inlet_cell_count"] == room["inlet_cell_count"]
+          assert room_wind["outlet_cell_count"] == room["outlet_cell_count"]
+          assert np.allclose(room_wind["temperature"][:, :, 0][room["inlet_mask_zyx"][:, :, 0]], 38.0)
 
           def cancellable(progress_callback=None, cancel_event=None):
               for i in range(100000):
