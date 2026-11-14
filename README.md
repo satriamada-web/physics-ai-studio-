@@ -1,8 +1,23 @@
-# Physics AI Studio — MVP 1.3
+# Physics AI Studio — MVP 1.4
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
 sedangkan perhitungan dijalankan pada server cloud Streamlit.
+
+## Geometry Builder 3D — MVP 1.4
+
+Antarmuka Streamlit menyediakan preview interaktif untuk tiga geometri primitif:
+- Kubus dengan panjang sisi yang dapat diatur.
+- Balok dengan panjang X, lebar Y, dan tinggi Z.
+- Silinder dengan radius, tinggi, dan resolusi permukaan yang dapat diatur.
+
+Geometri ditampilkan sebagai triangular surface mesh menggunakan Plotly 3D dan dapat
+diputar/diperbesar melalui kontrol kamera. Pengguna juga dapat mengekspor permukaan
+segitiga ke format OBJ. Modul pembangkit geometri berada pada `physics/geometry_3d.py`.
+
+Batasan: surface mesh ini hanya untuk visualisasi dan ekspor. Ini belum menjadi mesh
+volume tetrahedral/hexahedral dan belum terhubung langsung ke solver Heat Transfer 3D.
+Solver 3D eksperimental saat ini memakai grid Cartesian terstruktur.
 
 ## Arah pengembangan multiphysics 3D
 
