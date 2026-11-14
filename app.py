@@ -3,7 +3,7 @@ import json
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
-from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step, calculate_heat_flux
+from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step, calculate_heat_flux, calculate_steady_residual
 from physics.reporting import build_heat_transfer_pdf
 from physics.materials import MATERIALS
 from physics.verification import run_verification_suite
@@ -11,7 +11,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 0.9 · Verifikasi numerik, studi mesh, dan analisis fluks panas")
+st.caption("MVP 1.0 · Residual persamaan, verifikasi numerik, studi mesh, dan analisis fluks panas")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
@@ -240,9 +240,11 @@ if run:
     st.session_state.pop("mesh_study_result", None)
     boundary = {"left": float(t_left), "right": float(t_right), "top": float(t_top), "bottom": float(t_bottom)}
     try:
+        residual = None
         with st.spinner("Menghitung solusi numerik..."):
             if mode == "Steady-state":
                 result = solve_steady_state(nx, ny, lx, ly, k, q_vol, boundary, t_initial)
+                residual = calculate_steady_residual(result["temperature"], k, lx, ly, q_vol)
                 info = f"Steady-state · {result['iterations']:,} iterasi · konvergen: {'Ya' if result['converged'] else 'Belum'}"
                 extra = f"Perubahan maksimum iterasi terakhir: {result['last_delta']:.3e} °C"
             else:
@@ -260,7 +262,7 @@ if run:
             "mode": mode, "info": info, "extra": extra,
             "p": {"nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol,
                   "boundary": boundary, "initial": t_initial, "total_time": total_time,
-                  "material_name": material_name}
+                  "material_name": material_name}, "residual": residual
         }
         st.success("Simulasi selesai. Hasil numerik berhasil dihitung.")
     except Exception as exc:
@@ -281,6 +283,12 @@ else:
     a.metric("Temperatur minimum", f"{T.min():.2f} °C")
     b.metric("Temperatur maksimum", f"{T.max():.2f} °C")
     c.metric("Temperatur rata-rata", f"{T.mean():.2f} °C")
+    if data.get("residual") is not None:
+        st.subheader("Diagnostik residual steady-state")
+        st.caption("Residual diskret mengukur seberapa dekat solusi memenuhi persamaan Laplace/Poisson pada node interior. Bandingkan pada mesh dan skala masalah yang sama.")
+        r1, r2 = st.columns(2)
+        r1.metric("Residual maksimum absolut", f"{data['residual']['residual_max_abs']:.3e} K/m²")
+        r2.metric("Residual RMS", f"{data['residual']['residual_rms']:.3e} K/m²")
     col1, col2 = st.columns([1.35, 1])
     with col1:
         fig = go.Figure(go.Heatmap(z=T, x=x, y=y, colorscale="Inferno", colorbar={"title": "°C"},
