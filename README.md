@@ -225,3 +225,13 @@ Panel hasil solver 3D menyediakan:
 - Lokasi node temperatur minimum dan maksimum pada domain, beserta koordinatnya.
 
 Probe membaca nilai node secara langsung, bukan interpolasi kontinu. Irisan dan lokasi ekstrem berlaku untuk snapshot waktu yang sedang dipilih pada simulasi transient. Fitur ini merupakan post-processing grid Cartesian, bukan analisis geometri arbitrer.
+
+
+## Visualisasi vektor fluks panas 3D — MVP 1.8
+
+Hasil solver 3D kini menyertakan visualisasi vektor fluks panas berdasarkan Hukum Fourier,
+q = −k∇T. Arah panah merepresentasikan arah fluks dan warna merepresentasikan magnitudo
+dalam W/m². Untuk menjaga performa browser, visualisasi memakai sampel hingga sekitar
+7 titik per arah (dengan batas domain tetap disertakan); perhitungan dan ekspor CSV tetap
+menggunakan seluruh node grid. Jika fluks pada sampel mendekati nol, panel menampilkan
+pesan bahwa tidak ada vektor yang perlu digambar.
