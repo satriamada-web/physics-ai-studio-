@@ -69,6 +69,27 @@ def stable_time_step(conductivity, density, specific_heat, dx, dy):
     return 0.5 / (alpha * (1.0 / dx**2 + 1.0 / dy**2))
 
 
+def calculate_transient_diagnostics(conductivity, density, specific_heat, lx, ly, nx, ny, dt):
+    """Hitung bilangan Fourier dan rasio batas stabilitas untuk skema eksplisit 2D."""
+    if min(conductivity, density, specific_heat, lx, ly, dt) <= 0:
+        raise ValueError("Sifat material, ukuran domain, dan dt harus positif.")
+    if nx < 3 or ny < 3:
+        raise ValueError("Grid minimal 3 × 3.")
+    dx, dy = lx / (nx - 1), ly / (ny - 1)
+    alpha = conductivity / (density * specific_heat)
+    dt_limit = stable_time_step(conductivity, density, specific_heat, dx, dy)
+    fourier_x = alpha * dt / dx**2
+    fourier_y = alpha * dt / dy**2
+    stability_ratio = dt / dt_limit
+    return {
+        "thermal_diffusivity": alpha, "dx": dx, "dy": dy,
+        "dt_actual": dt, "dt_stability_limit": dt_limit,
+        "fourier_x": fourier_x, "fourier_y": fourier_y,
+        "fourier_sum": fourier_x + fourier_y,
+        "stability_ratio": stability_ratio,
+        "stable": stability_ratio <= 1.0 + 1e-10,
+    }
+
 def solve_transient(nx, ny, lx, ly, conductivity, density, specific_heat,
                     heat_generation, boundary, initial_temperature, total_time, dt,
                     snapshot_count=9):
