@@ -1306,6 +1306,11 @@ else:
     else:
         st.info("Studi independensi mesh saat ini tersedia untuk mode Steady-state. Jalankan simulasi steady-state untuk mengaktifkannya.")
 
+    if data.get("residual") is not None:
+        residual_report = "- Residual maksimum absolut: " + format(data["residual"]["residual_max_abs"], ".5e") + " K/m²\n- Residual RMS: " + format(data["residual"]["residual_rms"], ".5e") + " K/m²"
+    else:
+        residual_report = "- Tidak berlaku untuk mode transient."
+
     report = f"""# Laporan Simulasi — Physics AI Studio
 
 ## 1. Ringkasan
@@ -1338,7 +1343,7 @@ Konduksi panas 2D dengan metode beda hingga. Steady-state menggunakan iterasi Ja
 - Rata-rata: {T.mean():.4f} °C
 
 ## 7. Diagnostik residual steady-state
-{('- Residual maksimum absolut: ' + format(data['residual']['residual_max_abs'], '.5e') + ' K/m²\n- Residual RMS: ' + format(data['residual']['residual_rms'], '.5e') + ' K/m²') if data.get('residual') is not None else '- Tidak berlaku untuk mode transient.'}
+{residual_report}
 
 ## 8. Analisis fluks panas
 - Fluks maksimum: {qmag.max():.5g} W/m²
