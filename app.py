@@ -352,7 +352,6 @@ else:
     if data["mode"] == "Steady-state":
         if st.button("🔬 Jalankan studi independensi mesh", use_container_width=True):
             mesh_rows = []
-            mesh_errors = []
             with st.spinner("Menjalankan empat simulasi steady-state..."):
                 for mesh_n in (21, 31, 41, 51):
                     mesh_result = solve_steady_state(
@@ -368,7 +367,6 @@ else:
                         "Iterasi": int(mesh_result["iterations"]),
                         "Konvergen": "Ya" if mesh_result["converged"] else "Tidak",
                     })
-                    mesh_errors.append(mesh_result["last_delta"])
             reference_center = mesh_rows[-1]["T pusat (°C)"]
             reference_flux = mesh_rows[-1]["Fluks maksimum (W/m²)"]
             for row in mesh_rows:
