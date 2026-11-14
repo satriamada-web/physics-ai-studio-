@@ -66,6 +66,16 @@ def _run_2d_job(mode, nx, ny, lx, ly, k, rho, cp, q_vol, boundary,
     return {"result": result, "residual": None, "transient_diagnostics": diagnostics}
 
 
+def _run_3d_job(solver_function, solver_args, solver_kwargs, mode,
+                mesh_info, material_info, progress_callback=None, cancel_event=None):
+    result = solver_function(
+        *solver_args, progress_callback=progress_callback,
+        cancel_event=cancel_event, **solver_kwargs
+    )
+    result["mode"] = mode
+    return {"result": result, "mesh": mesh_info, "material": material_info}
+
+
 def number_input_with_unit(label, *args, **kwargs):
     """Render a numeric input with a compact unit badge on its right."""
     match = re.search(r"\(([^()]*)\)\s*$", str(label))
@@ -532,57 +542,45 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
             st.caption(f"Batas stabilitas eksplisit untuk mesh dan material ini: dt ≤ {stable_dt3:.5g} s. Solver otomatis memilih langkah waktu aman berdasarkan batas tersebut dan input maksimum di atas.")
         if st.button("▶ Jalankan simulasi Heat Transfer 3D", key="run_heat3d", type="primary", disabled=not solver_allowed):
             try:
-                progress3 = st.progress(0, text="Menyiapkan solver 3D…")
-                progress3_note = st.empty()
-                def update_progress_3d(current, total, metric):
-                    pct = min(100, int(100 * current / max(1, total)))
-                    if solver_mode_3d == "Steady-state":
-                        detail = f"Iterasi {current:,}/{total:,} · ΔT maks {metric:.3e} °C" if metric is not None else f"Iterasi {current:,}/{total:,}"
-                        progress3.progress(pct, text=f"Solver 3D · {pct}%")
-                        progress3_note.caption(detail + f" · target toleransi {float(tol3):.1e} °C")
-                    else:
-                        progress3.progress(pct, text=f"Integrasi waktu 3D · {pct}%")
-                        progress3_note.caption(f"Langkah waktu {current:,}/{total:,}")
                 if solver_mode_3d == "Steady-state":
-                    result3 = solve_steady_state_3d(
+                    solver_fn = solve_steady_state_3d
+                    solver_args = (
                         active_mesh["nx"], active_mesh["ny"], active_mesh["nz"],
                         active_mesh["lx"], active_mesh["ly"], active_mesh["lz"],
                         float(k3), float(q3), boundary3,
-                        initial_temperature=float(initial3),
-                        tolerance=float(tol3), max_iterations=int(iter3),
-                        progress_callback=update_progress_3d,
                     )
-                    result3["mode"] = "Steady-state"
-                    progress3.progress(100, text="Solver selesai")
-                    progress3_note.caption(
-                        f"{'Konvergen' if result3['converged'] else 'Batas iterasi tercapai'} · "
-                        f"{result3['iterations']:,} iterasi · ΔT akhir {result3['last_delta']:.3e} °C"
-                    )
+                    solver_kwargs = {
+                        "initial_temperature": float(initial3),
+                        "tolerance": float(tol3), "max_iterations": int(iter3),
+                    }
                 else:
-                    result3 = solve_transient_3d(
+                    solver_fn = solve_transient_3d
+                    solver_args = (
                         active_mesh["nx"], active_mesh["ny"], active_mesh["nz"],
                         active_mesh["lx"], active_mesh["ly"], active_mesh["lz"],
                         float(k3), float(rho3), float(cp3), float(q3), boundary3,
                         float(initial3), float(total3), float(maxdt3),
-                        snapshot_count=9, progress_callback=update_progress_3d,
                     )
-                    result3["mode"] = "Transient"
-                    progress3.progress(100, text="Integrasi waktu selesai")
-                    progress3_note.caption(f"{result3['steps']:,} langkah selesai · t akhir {result3['simulated_time']:.5g} s")
-                st.session_state["heat3d_result"] = result3
-                st.session_state["heat3d_result_mesh"] = {
-                    "nx": active_mesh["nx"], "ny": active_mesh["ny"], "nz": active_mesh["nz"],
-                    "lx": active_mesh["lx"], "ly": active_mesh["ly"], "lz": active_mesh["lz"],
+                    solver_kwargs = {"snapshot_count": 9}
+                mesh_info = {key: active_mesh[key] for key in ("nx", "ny", "nz", "lx", "ly", "lz")}
+                material_info = {
+                    "k": float(k3), "rho": float(rho3), "cp": float(cp3),
+                    "q": float(q3), "initial": float(initial3), "boundary": boundary3.copy(),
                 }
-                st.session_state["heat3d_result_k"] = float(k3)
-                st.session_state["heat3d_result_rho"] = float(rho3)
-                st.session_state["heat3d_result_cp"] = float(cp3)
-                st.session_state["heat3d_result_q"] = float(q3)
-                st.session_state["heat3d_result_initial"] = float(initial3)
-                st.session_state["heat3d_result_boundary"] = boundary3.copy()
+                st.session_state["heat3d_job_id"] = submit_job(
+                    "heat-transfer-3d", _run_3d_job, solver_fn, solver_args,
+                    solver_kwargs, solver_mode_3d, mesh_info, material_info,
+                )
                 st.session_state.pop("heat3d_error", None)
-            except Exception as exc:
-                st.session_state["heat3d_error"] = str(exc)
+            except (TypeError, ValueError, ZeroDivisionError) as exc:
+                st.session_state["heat3d_error"] = f"Input tidak valid: {exc}"
+        render_job_monitor("heat3d_job_id", "heat3d_job_payload", "Solver Heat Transfer 3D")
+        payload3 = st.session_state.pop("heat3d_job_payload", None)
+        if payload3:
+            st.session_state["heat3d_result"] = payload3["result"]
+            st.session_state["heat3d_result_mesh"] = payload3["mesh"]
+            for key, value in payload3["material"].items():
+                st.session_state["heat3d_result_" + key] = value
         if st.session_state.get("heat3d_error"):
             st.error("Simulasi 3D gagal: " + st.session_state["heat3d_error"])
 
