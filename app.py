@@ -332,7 +332,7 @@ div[class*="st-key-transient_pill"] [data-testid="stCaptionContainer"] {text-ali
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""<div class="app-topbar"><div><div class="app-name">PHYSICS AI STUDIO</div><div class="app-subtitle">Multiphysics Simulation Environment · MVP 1.9</div></div><div class="app-status">● READY</div></div><div class="app-ribbon">FILE　 MODEL　 GEOMETRY　 MATERIALS　 PHYSICS　 MESH　 STUDY　 RESULTS</div>""", unsafe_allow_html=True)
+st.markdown("""<div class="app-topbar"><div><div class="app-name">PHYSICS AI STUDIO</div><div class="app-subtitle">Multiphysics Simulation Environment · MVP 2.0</div></div><div class="app-status">● READY</div></div><div class="app-ribbon">FILE　 MODEL　 GEOMETRY　 MATERIALS　 PHYSICS　 MESH　 STUDY　 RESULTS</div>""", unsafe_allow_html=True)
 
 # Local project library: JSON files on the application host.
 with st.expander("📁 Daftar Proyek / Recent Simulations", expanded=False):
@@ -1821,4 +1821,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 1.9 | 3D Heat Transfer, post-processing, heat-flux vectors, dan energy balance. Solver edukatif; periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 2.0 | 3D Heat Transfer, post-processing, heat-flux vectors, dan energy balance. Solver edukatif; periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
