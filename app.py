@@ -377,7 +377,12 @@ Konduksi panas 2D dengan metode beda hingga. Steady-state menggunakan iterasi Ja
 - Maksimum: {T.max():.4f} °C
 - Rata-rata: {T.mean():.4f} °C
 
-## 7. Batasan model
+## 7. Analisis fluks panas
+- Fluks maksimum: {qmag.max():.5g} W/m²
+- Fluks rata-rata: {qmag.mean():.5g} W/m²
+- Fluks minimum: {qmag.min():.5g} W/m²
+
+## 8. Batasan model
 Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konveksi, radiasi, dan validasi eksperimen belum dimodelkan.
 """
     try:
@@ -389,11 +394,11 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         st.error(f"PDF belum dapat dibuat: {exc}")
 
     flux_csv = io.StringIO()
-    flux_csv.write("x_m,y_m,qx_W_m2,qy_W_m2,q_magnitude_W_m2\\n")
+    flux_csv.write("x_m,y_m,qx_W_m2,qy_W_m2,q_magnitude_W_m2\n")
     for iy, yi in enumerate(y):
         for ix, xi in enumerate(x):
             flux_csv.write(
-                f"{xi:.8g},{yi:.8g},{qx[iy,ix]:.8g},{qy[iy,ix]:.8g},{qmag[iy,ix]:.8g}\\n"
+                f"{xi:.8g},{yi:.8g},{qx[iy,ix]:.8g},{qy[iy,ix]:.8g},{qmag[iy,ix]:.8g}\n"
             )
 
     d1, d2, d3 = st.columns(3)
