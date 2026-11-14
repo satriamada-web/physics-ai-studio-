@@ -1,4 +1,5 @@
 import io
+import json
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
@@ -8,7 +9,7 @@ from physics.reporting import build_heat_transfer_pdf
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 0.4 · Evolusi temperatur transient")
+st.caption("MVP 0.5 · Preset konfigurasi dan evolusi transient")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
@@ -56,6 +57,66 @@ def redo_settings():
     st.session_state.setdefault("_settings_undo", []).append(current.copy())
     apply_settings(target)
 
+
+def save_preset():
+    name = st.session_state.get("preset_name_input", "").strip()
+    if not name:
+        st.session_state["_preset_message"] = "Masukkan nama preset terlebih dahulu."
+        return
+    st.session_state.setdefault("_user_presets", {})[name] = read_settings()
+    st.session_state["_preset_selected"] = name
+    st.session_state["_preset_message"] = f"Preset '{name}' berhasil disimpan pada sesi ini."
+
+def load_preset():
+    name = st.session_state.get("_preset_selected")
+    preset = st.session_state.get("_user_presets", {}).get(name)
+    if preset:
+        current = read_settings()
+        st.session_state.setdefault("_settings_undo", []).append(current.copy())
+        st.session_state["_settings_redo"] = []
+        apply_settings(preset.copy())
+        st.session_state["_preset_message"] = f"Preset '{name}' diterapkan."
+
+def delete_preset():
+    name = st.session_state.get("_preset_selected")
+    presets = st.session_state.setdefault("_user_presets", {})
+    if name in presets:
+        del presets[name]
+        st.session_state["_preset_selected"] = next(iter(presets), "")
+        st.session_state["_preset_message"] = f"Preset '{name}' dihapus."
+
+def import_preset():
+    uploaded = st.session_state.get("preset_upload")
+    if uploaded is None:
+        st.session_state["_preset_message"] = "Pilih file preset JSON terlebih dahulu."
+        return
+    try:
+        payload = json.loads(uploaded.getvalue().decode("utf-8"))
+        settings = payload.get("settings", payload)
+        if set(settings) != set(SETTING_KEYS):
+            raise ValueError("Struktur parameter tidak cocok.")
+        if settings["mode"] not in ("Steady-state", "Transient"):
+            raise ValueError("Mode simulasi tidak valid.")
+        numeric = [key for key in SETTING_KEYS if key != "mode"]
+        if any(not isinstance(settings[key], (int, float)) or isinstance(settings[key], bool) for key in numeric):
+            raise ValueError("Semua parameter numerik harus berupa angka.")
+        ranges = {
+            "nx": (11, 101), "ny": (11, 101), "lx": (0.01, 2.0), "ly": (0.01, 2.0),
+            "k": (0.01, 2000), "rho": (1, 25000), "cp": (1, 10000),
+            "q_vol": (0, 1.0e8), "total_time": (0.01, 10000),
+        }
+        for key, (low, high) in ranges.items():
+            if not low <= settings[key] <= high:
+                raise ValueError(f"Nilai {key} di luar rentang.")
+        if settings["nx"] % 2 == 0 or settings["ny"] % 2 == 0:
+            raise ValueError("Jumlah grid harus ganjil.")
+        name = payload.get("name", "Imported preset")
+        st.session_state.setdefault("_user_presets", {})[name] = settings
+        st.session_state["_preset_selected"] = name
+        st.session_state["_preset_message"] = f"Preset '{name}' berhasil diimpor."
+    except Exception as exc:
+        st.session_state["_preset_message"] = f"Impor gagal: {exc}"
+
 def reset_settings():
     current = read_settings()
     if current != DEFAULT_SETTINGS:
@@ -78,6 +139,28 @@ with st.sidebar:
     h2.button("↷ Redo", use_container_width=True, disabled=not st.session_state["_settings_redo"], on_click=redo_settings)
     st.button("⟲ Default Settings", use_container_width=True, on_click=reset_settings)
     st.caption("Undo/Redo menyimpan hingga 50 perubahan parameter.")
+    st.divider()
+    st.header("Preset konfigurasi")
+    st.text_input("Nama preset", key="preset_name_input", placeholder="Contoh: Aluminium 2D")
+    st.button("💾 Simpan konfigurasi saat ini", use_container_width=True, on_click=save_preset)
+    _presets = st.session_state.setdefault("_user_presets", {})
+    if _presets:
+        st.selectbox("Preset tersimpan", list(_presets.keys()), key="_preset_selected")
+        st.button("Terapkan preset", use_container_width=True, on_click=load_preset)
+        st.button("Hapus preset terpilih", use_container_width=True, on_click=delete_preset)
+        _selected = st.session_state.get("_preset_selected")
+        if _selected in _presets:
+            st.download_button(
+                "⬇ Ekspor preset JSON",
+                json.dumps({"name": _selected, "settings": _presets[_selected]}, indent=2).encode("utf-8"),
+                file_name=f"physics_ai_preset_{_selected.lower().replace(' ', '_')}.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+    st.file_uploader("Impor preset JSON", type=["json"], key="preset_upload")
+    st.button("Impor file preset", use_container_width=True, on_click=import_preset)
+    if st.session_state.get("_preset_message"):
+        st.caption(st.session_state["_preset_message"])
     st.divider()
     st.header("1 · Model fisika")
     mode = st.selectbox("Jenis simulasi", ["Steady-state", "Transient"], key="mode", on_change=record_settings_change)
@@ -246,4 +329,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 0.4 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 0.5 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
