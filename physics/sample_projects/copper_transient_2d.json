@@ -22,7 +22,7 @@
     "total_time": 10,
     "solver_tolerance": 0.000001,
     "solver_max_iterations": 30000,
-    "mesh_density_2d": "Normal / Sedang",
+    "mesh_density_2d": "Normal",
     "probe_x_2d": 20,
     "probe_y_2d": 20
   }
