@@ -10,7 +10,7 @@ from physics.materials import MATERIALS
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 0.7 · Analisis fluks panas dan database material")
+st.caption("MVP 0.8 · Studi independensi mesh dan analisis fluks panas")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
@@ -346,6 +346,65 @@ else:
         csv.write(f"{yi:.8g}," + ",".join(f"{v:.8g}" for v in row) + "\n")
 
     p = data["p"]
+
+    st.subheader("Studi independensi mesh")
+    st.caption("Membandingkan solusi steady-state pada beberapa resolusi grid dengan geometri, material, sumber panas, dan kondisi batas yang sama. Studi ini memakai grid 21, 31, 41, dan 51 titik per arah.")
+    if data["mode"] == "Steady-state":
+        if st.button("🔬 Jalankan studi independensi mesh", use_container_width=True):
+            mesh_rows = []
+            mesh_errors = []
+            with st.spinner("Menjalankan empat simulasi steady-state..."):
+                for mesh_n in (21, 31, 41, 51):
+                    mesh_result = solve_steady_state(
+                        mesh_n, mesh_n, p["lx"], p["ly"], p["k"], p["q"],
+                        p["boundary"], p["initial"]
+                    )
+                    mesh_T = mesh_result["temperature"]
+                    _, _, mesh_qmag = calculate_heat_flux(mesh_T, p["k"], p["lx"], p["ly"])
+                    mesh_rows.append({
+                        "Grid": f"{mesh_n} × {mesh_n}",
+                        "T pusat (°C)": float(mesh_T[mesh_n//2, mesh_n//2]),
+                        "Fluks maksimum (W/m²)": float(mesh_qmag.max()),
+                        "Iterasi": int(mesh_result["iterations"]),
+                        "Konvergen": "Ya" if mesh_result["converged"] else "Tidak",
+                    })
+                    mesh_errors.append(mesh_result["last_delta"])
+            reference_center = mesh_rows[-1]["T pusat (°C)"]
+            reference_flux = mesh_rows[-1]["Fluks maksimum (W/m²)"]
+            for row in mesh_rows:
+                row["Error T pusat vs 51² (%)"] = (
+                    100.0 * abs(row["T pusat (°C)"] - reference_center)
+                    / max(abs(reference_center), 1e-12)
+                )
+                row["Error fluks vs 51² (%)"] = (
+                    100.0 * abs(row["Fluks maksimum (W/m²)"] - reference_flux)
+                    / max(abs(reference_flux), 1e-12)
+                )
+            st.session_state["mesh_study_result"] = mesh_rows
+        mesh_rows = st.session_state.get("mesh_study_result")
+        if mesh_rows:
+            st.dataframe(mesh_rows, use_container_width=True, hide_index=True)
+            st.caption("Grid 51 × 51 dipakai sebagai referensi pembanding, bukan solusi eksak. Error dihitung relatif terhadap hasil grid tersebut.")
+            center_chart = go.Figure(go.Scatter(
+                x=[21, 31, 41, 51],
+                y=[row["T pusat (°C)"] for row in mesh_rows],
+                mode="lines+markers",
+                name="Temperatur pusat",
+            ))
+            center_chart.update_layout(
+                title="Konvergensi temperatur pusat terhadap resolusi mesh",
+                xaxis_title="Jumlah titik per arah",
+                yaxis_title="Temperatur pusat (°C)",
+                height=350,
+            )
+            st.plotly_chart(center_chart, use_container_width=True)
+            if all(row["Konvergen"] == "Ya" for row in mesh_rows):
+                st.info("Semua solusi pada studi mesh memenuhi kriteria konvergensi solver. Periksa juga perubahan nilai antar-grid sebelum menyimpulkan independensi mesh.")
+            else:
+                st.warning("Setidaknya satu grid belum konvergen. Hasil studi mesh belum layak dijadikan dasar kesimpulan.")
+    else:
+        st.info("Studi independensi mesh saat ini tersedia untuk mode Steady-state. Jalankan simulasi steady-state untuk mengaktifkannya.")
+
     report = f"""# Laporan Simulasi — Physics AI Studio
 
 ## 1. Ringkasan
@@ -410,4 +469,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 0.7 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 0.8 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
