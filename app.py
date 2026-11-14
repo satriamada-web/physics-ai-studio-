@@ -5,15 +5,16 @@ import plotly.graph_objects as go
 import streamlit as st
 from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step
 from physics.reporting import build_heat_transfer_pdf
+from physics.materials import MATERIALS
 
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 0.5 · Preset konfigurasi dan evolusi transient")
+st.caption("MVP 0.6 · Database material dan preset konfigurasi")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
-    "mode": "Steady-state", "nx": 41, "ny": 41,
+    "mode": "Steady-state", "material_name": "Custom", "nx": 41, "ny": 41,
     "lx": 0.10, "ly": 0.10, "k": 45.0, "rho": 7800.0, "cp": 500.0,
     "t_left": 100.0, "t_right": 25.0, "t_top": 25.0, "t_bottom": 25.0,
     "t_initial": 25.0, "q_vol": 0.0, "total_time": 10.0,
@@ -97,7 +98,9 @@ def import_preset():
             raise ValueError("Struktur parameter tidak cocok.")
         if settings["mode"] not in ("Steady-state", "Transient"):
             raise ValueError("Mode simulasi tidak valid.")
-        numeric = [key for key in SETTING_KEYS if key != "mode"]
+        if settings["material_name"] not in MATERIALS:
+            raise ValueError("Material preset tidak dikenal.")
+        numeric = [key for key in SETTING_KEYS if key not in ("mode", "material_name")]
         if any(not isinstance(settings[key], (int, float)) or isinstance(settings[key], bool) for key in numeric):
             raise ValueError("Semua parameter numerik harus berupa angka.")
         ranges = {
@@ -118,6 +121,15 @@ def import_preset():
         st.session_state["_preset_message"] = f"Preset '{name}' berhasil diimpor."
     except Exception as exc:
         st.session_state["_preset_message"] = f"Impor gagal: {exc}"
+
+def select_material():
+    name = st.session_state.get("material_name", "Custom")
+    material = MATERIALS.get(name)
+    if material and name != "Custom":
+        for key in ("k", "rho", "cp"):
+            st.session_state[key] = material[key]
+    record_settings_change()
+
 
 def reset_settings():
     current = read_settings()
@@ -173,6 +185,16 @@ with st.sidebar:
     lx = st.number_input("Panjang X (m)", 0.01, 2.0, step=0.01, format="%.3f", key="lx", on_change=record_settings_change)
     ly = st.number_input("Panjang Y (m)", 0.01, 2.0, step=0.01, format="%.3f", key="ly", on_change=record_settings_change)
     st.header("3 · Sifat material")
+    material_name = st.selectbox(
+        "Pilih material",
+        list(MATERIALS.keys()),
+        key="material_name",
+        on_change=select_material,
+    )
+    material_info = MATERIALS[material_name]
+    st.caption(material_info["description"])
+    if material_name != "Custom":
+        st.caption("Sumber data: " + material_info["reference"])
     k = st.number_input("Konduktivitas termal k (W/m·K)", 0.01, 2000.0, step=1.0, key="k", on_change=record_settings_change)
     rho = st.number_input("Massa jenis (kg/m³)", 1.0, 25000.0, step=100.0, key="rho", on_change=record_settings_change)
     cp = st.number_input("Kalor jenis cp (J/kg·K)", 1.0, 10000.0, step=10.0, key="cp", on_change=record_settings_change)
@@ -216,7 +238,8 @@ if run:
             "snapshots": result.get("snapshots", []), "snapshot_times": result.get("snapshot_times", []),
             "mode": mode, "info": info, "extra": extra,
             "p": {"nx": nx, "ny": ny, "lx": lx, "ly": ly, "k": k, "rho": rho, "cp": cp, "q": q_vol,
-                  "boundary": boundary, "initial": t_initial, "total_time": total_time}
+                  "boundary": boundary, "initial": t_initial, "total_time": total_time,
+                  "material_name": material_name}
         }
         st.success("Simulasi selesai. Hasil numerik berhasil dihitung.")
     except Exception as exc:
@@ -296,6 +319,7 @@ else:
 - Grid: {p['nx']} × {p['ny']}
 
 ## 3. Sifat material
+- Material: {p['material_name']}
 - Konduktivitas: {p['k']} W/(m·K)
 - Massa jenis: {p['rho']} kg/m³
 - Kalor jenis: {p['cp']} J/(kg·K)
@@ -332,4 +356,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 0.5 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 0.6 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
