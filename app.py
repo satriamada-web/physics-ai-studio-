@@ -168,6 +168,19 @@ div[class*="st-key-bottom_sheet"] h1,
 div[class*="st-key-bottom_sheet"] h2,
 div[class*="st-key-bottom_sheet"] h3 { margin-top:.35rem !important; margin-bottom:.35rem !important; }
 
+div[data-testid="stProgress"] {
+  padding:5px 8px; border:1px solid rgba(125,190,215,.18);
+  border-radius:12px; background:rgba(20,32,45,.42);
+}
+div[data-testid="stProgress"] > div > div {
+  height:9px !important; border-radius:99px !important;
+  background:rgba(145,165,185,.16) !important;
+}
+div[data-testid="stProgress"] > div > div > div {
+  border-radius:99px !important;
+  background:linear-gradient(90deg,#2CA9D4,#55D8E8,#62D5A3) !important;
+  box-shadow:0 0 12px rgba(56,200,242,.24);
+}
 div[class*="st-key-transient_pill"] {
   position:fixed !important; z-index:1200 !important; left:50% !important;
   transform:translateX(-50%) !important; bottom:22px !important;
