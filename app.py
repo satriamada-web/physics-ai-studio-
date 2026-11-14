@@ -3,12 +3,13 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step
+from physics.reporting import build_heat_transfer_pdf
 
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 0.1 · Simulasi konduksi panas 2D")
-st.write("Atur model, jalankan solver numerik, lalu amati distribusi temperatur dan profil suhu pada pelat.")
+st.caption("MVP 0.2 · Simulasi konduksi panas 2D dan laporan ilmiah PDF")
+st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 with st.sidebar:
     st.header("1 · Model fisika")
@@ -20,7 +21,7 @@ with st.sidebar:
     ly = st.number_input("Panjang Y (m)", 0.01, 2.0, 0.10, 0.01, format="%.3f")
     st.header("3 · Sifat material")
     k = st.number_input("Konduktivitas termal k (W/m·K)", 0.01, 2000.0, 45.0, 1.0)
-    rho = st.number_input("Massa jenis ρ (kg/m³)", 1.0, 25000.0, 7800.0, 100.0)
+    rho = st.number_input("Massa jenis (kg/m³)", 1.0, 25000.0, 7800.0, 100.0)
     cp = st.number_input("Kalor jenis cp (J/kg·K)", 1.0, 10000.0, 500.0, 10.0)
     st.header("4 · Kondisi batas")
     st.caption("Temperatur pada keempat sisi pelat dianggap tetap.")
@@ -56,7 +57,7 @@ if run:
                     st.stop()
                 result = solve_transient(nx,ny,lx,ly,k,rho,cp,q_vol,boundary,t_initial,total_time,dt)
                 info = f"Transient · {result['steps']:,} langkah · waktu akhir: {result['simulated_time']:.4g} s"
-                extra = f"Δt = {result['dt']:.3e} s (memenuhi batas stabilitas eksplisit)"
+                extra = f"dt = {result['dt']:.3e} s (memenuhi batas stabilitas eksplisit)"
         st.session_state["last_result"] = {
             "T":result["temperature"],"x":np.linspace(0,lx,nx),"y":np.linspace(0,ly,ny),
             "mode":mode,"info":info,"extra":extra,
@@ -98,39 +99,54 @@ else:
     csv.write("y_m," + ",".join([f"x={v:.6g}_m" for v in x]) + "\n")
     for yi,row in zip(y,T):
         csv.write(f"{yi:.8g}," + ",".join(f"{v:.8g}" for v in row) + "\n")
+
     p=data["p"]
     report=f"""# Laporan Simulasi — Physics AI Studio
 
-## Ringkasan
+## 1. Ringkasan
 - Mode: {data['mode']}
 - Status numerik: {data['info']}
 - Catatan: {data['extra']}
 
-## Parameter
+## 2. Geometri dan mesh
 - Domain: {p['lx']} × {p['ly']} m
 - Grid: {p['nx']} × {p['ny']}
+
+## 3. Sifat material
 - Konduktivitas: {p['k']} W/(m·K)
 - Massa jenis: {p['rho']} kg/m³
 - Kalor jenis: {p['cp']} J/(kg·K)
+- Difusivitas termal: {p['k']/(p['rho']*p['cp']):.5e} m²/s
 - Pembangkitan panas: {p['q']} W/m³
 - Temperatur awal: {p['initial']} °C
-- Kondisi batas: {p['boundary']}
 
-## Hasil
+## 4. Kondisi batas
+{p['boundary']}
+
+## 5. Metode numerik
+Konduksi panas 2D dengan metode beda hingga. Steady-state menggunakan iterasi Jacobi, sedangkan transient menggunakan skema eksplisit.
+
+## 6. Hasil numerik
 - Minimum: {T.min():.4f} °C
 - Maksimum: {T.max():.4f} °C
 - Rata-rata: {T.mean():.4f} °C
 
-## Metode dan batasan
-Model konduksi panas dua dimensi pada material homogen dan isotropik.
-Keempat sisi menggunakan kondisi batas temperatur tetap (Dirichlet).
-Konveksi, radiasi, perubahan sifat material terhadap temperatur, dan deformasi
-belum dimodelkan. Hasil adalah keluaran simulasi numerik, bukan pengukuran eksperimen.
-Validasi terhadap solusi analitik atau eksperimen belum dilakukan.
+## 7. Batasan model
+Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konveksi, radiasi, dan validasi eksperimen belum dimodelkan.
 """
+    try:
+        pdf_bytes = build_heat_transfer_pdf(data)
+        st.download_button(
+            "⬇ Unduh laporan ilmiah (PDF)", pdf_bytes,
+            "physics_ai_studio_heat_transfer_report.pdf", "application/pdf",
+            use_container_width=True, type="primary"
+        )
+    except Exception as exc:
+        st.error(f"PDF belum dapat dibuat: {exc}")
+
     d1,d2=st.columns(2)
     d1.download_button("⬇ Unduh data temperatur (CSV)",csv.getvalue().encode(), "physics_ai_studio_temperature.csv","text/csv",use_container_width=True)
     d2.download_button("⬇ Unduh laporan (Markdown)",report.encode(),"laporan_physics_ai_studio.md","text/markdown",use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 0.1 | Solver numerik edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 0.2 | Solver numerik edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
