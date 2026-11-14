@@ -2,6 +2,7 @@
 from io import BytesIO
 
 import numpy as np
+from physics.heat_transfer import calculate_heat_flux
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
@@ -104,6 +105,7 @@ def build_heat_transfer_pdf(data):
     y = np.asarray(data["y"], dtype=float)
     p = data["p"]
     boundary = p["boundary"]
+    _, _, heat_flux = calculate_heat_flux(T, p["k"], p["lx"], p["ly"])
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -210,7 +212,20 @@ def build_heat_transfer_pdf(data):
         ),
         Paragraph("7. Centerline Temperature Profile", styles["Section"]),
         ProfileFlowable(x, T[len(y) // 2, :]),
-        Paragraph("8. Simulation Results", styles["Section"]),
+        Paragraph("8. Heat Flux Analysis", styles["Section"]),
+        add_table([
+            ["Metric", "Result"],
+            ["Maximum heat flux magnitude", f"{float(heat_flux.max()):.5g} W/m²"],
+            ["Mean heat flux magnitude", f"{float(heat_flux.mean()):.5g} W/m²"],
+            ["Minimum heat flux magnitude", f"{float(heat_flux.min()):.5g} W/m²"],
+        ], [70 * mm, 90 * mm]),
+        Paragraph(
+            "Heat flux is estimated from Fourier's law, q = -k grad(T), using "
+            "finite-difference temperature gradients on the Cartesian grid. "
+            "Values are local conductive heat-flux density, not total heat rate.",
+            styles["SmallNote"],
+        ),
+        Paragraph("9. Simulation Results", styles["Section"]),
         add_table([
             ["Metric", "Result"],
             ["Minimum temperature", f"{float(T.min()):.5f} °C"],
