@@ -464,7 +464,7 @@ Konduksi panas 2D dengan metode beda hingga. Steady-state menggunakan iterasi Ja
 - Rata-rata: {T.mean():.4f} °C
 
 ## 7. Diagnostik residual steady-state
-{('- Residual maksimum absolut: ' + format(data['residual']['residual_max_abs'], '.5e') + ' K/m²\\n- Residual RMS: ' + format(data['residual']['residual_rms'], '.5e') + ' K/m²') if data.get('residual') is not None else '- Tidak berlaku untuk mode transient.'}
+{('- Residual maksimum absolut: ' + format(data['residual']['residual_max_abs'], '.5e') + ' K/m²\n- Residual RMS: ' + format(data['residual']['residual_rms'], '.5e') + ' K/m²') if data.get('residual') is not None else '- Tidak berlaku untuk mode transient.'}
 
 ## 8. Analisis fluks panas
 - Fluks maksimum: {qmag.max():.5g} W/m²
