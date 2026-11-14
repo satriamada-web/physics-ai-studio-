@@ -388,10 +388,20 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
     except Exception as exc:
         st.error(f"PDF belum dapat dibuat: {exc}")
 
-    d1, d2 = st.columns(2)
-    d1.download_button("⬇ Unduh data temperatur (CSV)", csv.getvalue().encode(),
+    flux_csv = io.StringIO()
+    flux_csv.write("x_m,y_m,qx_W_m2,qy_W_m2,q_magnitude_W_m2\\n")
+    for iy, yi in enumerate(y):
+        for ix, xi in enumerate(x):
+            flux_csv.write(
+                f"{xi:.8g},{yi:.8g},{qx[iy,ix]:.8g},{qy[iy,ix]:.8g},{qmag[iy,ix]:.8g}\\n"
+            )
+
+    d1, d2, d3 = st.columns(3)
+    d1.download_button("⬇ Data temperatur (CSV)", csv.getvalue().encode(),
         "physics_ai_studio_temperature.csv", "text/csv", use_container_width=True)
-    d2.download_button("⬇ Unduh laporan (Markdown)", report.encode(),
+    d2.download_button("⬇ Data fluks panas (CSV)", flux_csv.getvalue().encode(),
+        "physics_ai_studio_heat_flux.csv", "text/csv", use_container_width=True)
+    d3.download_button("⬇ Laporan (Markdown)", report.encode(),
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
