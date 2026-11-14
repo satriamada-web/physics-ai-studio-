@@ -12,8 +12,99 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.3 · Riwayat temperatur titik transient, verifikasi numerik, studi mesh, dan analisis fluks panas")
+st.caption("MVP 1.4 · Geometry Builder 3D, solver Heat Transfer 2D, dan fondasi solver 3D eksperimental")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
+
+st.divider()
+st.header("Geometry Builder 3D · MVP 1.4")
+st.caption("Buat dan putar geometri primitif 3D. Preview ini adalah surface mesh untuk visualisasi, belum merupakan mesh volume untuk solver FEM.")
+with st.expander("Buka Geometry Builder 3D", expanded=True):
+    from physics.geometry_3d import create_geometry
+
+    shape_col, size_col, resolution_col = st.columns([1, 1.4, 1])
+    with shape_col:
+        geometry_shape = st.selectbox(
+            "Bentuk objek", ["Kubus", "Balok", "Silinder"], key="geometry_3d_shape"
+        )
+    dimensions = {}
+    with size_col:
+        if geometry_shape == "Kubus":
+            dimensions["sisi"] = st.number_input(
+                "Panjang sisi (m)", min_value=0.001, max_value=10.0,
+                value=0.10, step=0.01, format="%.3f", key="geometry_cube_side"
+            )
+        elif geometry_shape == "Balok":
+            dimensions["panjang"] = st.number_input(
+                "Panjang X (m)", min_value=0.001, max_value=10.0,
+                value=0.20, step=0.01, format="%.3f", key="geometry_block_x"
+            )
+            dimensions["lebar"] = st.number_input(
+                "Lebar Y (m)", min_value=0.001, max_value=10.0,
+                value=0.12, step=0.01, format="%.3f", key="geometry_block_y"
+            )
+            dimensions["tinggi"] = st.number_input(
+                "Tinggi Z (m)", min_value=0.001, max_value=10.0,
+                value=0.08, step=0.01, format="%.3f", key="geometry_block_z"
+            )
+        else:
+            dimensions["radius"] = st.number_input(
+                "Radius (m)", min_value=0.001, max_value=5.0,
+                value=0.05, step=0.005, format="%.3f", key="geometry_cylinder_radius"
+            )
+            dimensions["tinggi"] = st.number_input(
+                "Tinggi (m)", min_value=0.001, max_value=10.0,
+                value=0.15, step=0.01, format="%.3f", key="geometry_cylinder_height"
+            )
+    with resolution_col:
+        geometry_resolution = st.slider(
+            "Resolusi silinder", min_value=8, max_value=64,
+            value=24, step=4, key="geometry_3d_resolution"
+        )
+        st.caption("Makin tinggi resolusi, makin halus permukaan silinder.")
+    if st.button("Buat / perbarui geometri 3D", key="build_geometry_3d", type="primary"):
+        try:
+            st.session_state["geometry_3d_result"] = create_geometry(
+                geometry_shape, dimensions, geometry_resolution
+            )
+            st.session_state.pop("geometry_3d_error", None)
+        except Exception as exc:
+            st.session_state["geometry_3d_error"] = str(exc)
+    if st.session_state.get("geometry_3d_error"):
+        st.error(st.session_state["geometry_3d_error"])
+    geometry_result = st.session_state.get("geometry_3d_result")
+    if geometry_result:
+        vertices = geometry_result["vertices"]
+        faces = geometry_result["faces"]
+        mesh_fig = go.Figure(data=[go.Mesh3d(
+            x=vertices[:, 0], y=vertices[:, 1], z=vertices[:, 2],
+            i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
+            color="#4C9BE8", opacity=0.88, flatshading=True,
+            hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>z=%{z:.4f} m<extra></extra>",
+        )])
+        mesh_fig.update_layout(
+            title=f"Preview geometri: {geometry_result['shape']}",
+            scene={
+                "xaxis_title": "X (m)", "yaxis_title": "Y (m)", "zaxis_title": "Z (m)",
+                "aspectmode": "data",
+                "camera": {"eye": {"x": 1.6, "y": 1.6, "z": 1.3}},
+            },
+            height=560, margin={"l": 0, "r": 0, "t": 50, "b": 0},
+        )
+        st.plotly_chart(mesh_fig, use_container_width=True, key="geometry_3d_preview")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Titik vertex", geometry_result["vertex_count"])
+        m2.metric("Segitiga permukaan", geometry_result["face_count"])
+        m3.metric("Dimensi X × Y × Z", " × ".join(f"{v:.3g}" for v in geometry_result["dimensions_m"].values()) + " m")
+        st.download_button(
+            "⬇ Unduh geometri (OBJ)",
+            "\n".join(
+                [*(f"v {v[0]:.10g} {v[1]:.10g} {v[2]:.10g}" for v in vertices),
+                 *(f"f {f[0]+1} {f[1]+1} {f[2]+1}" for f in faces)]
+            ).encode("utf-8"),
+            file_name="physics_ai_studio_geometry.obj",
+            mime="text/plain",
+        )
+        st.info("Geometri ini masih berupa permukaan segitiga (surface mesh). Solver 3D saat ini memakai grid Cartesian terstruktur dan belum menerima geometri arbitrer ini secara langsung.")
 
 DEFAULT_SETTINGS = {
     "mode": "Steady-state", "material_name": "Custom", "nx": 41, "ny": 41,
@@ -562,4 +653,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 1.3 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 1.4 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
