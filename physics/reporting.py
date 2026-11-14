@@ -134,7 +134,7 @@ def build_heat_transfer_pdf(data):
 
     story = [
         Paragraph("PHYSICS AI STUDIO", styles["ReportTitle"]),
-        Paragraph("HEAT TRANSFER SIMULATION REPORT · MVP 0.2", styles["SubTitle"]),
+        Paragraph("HEAT TRANSFER SIMULATION REPORT · MVP 0.6", styles["SubTitle"]),
         Paragraph("1. Simulation Overview", styles["Section"]),
         Paragraph(
             f"<b>Simulation mode:</b> {data['mode']}<br/>"
@@ -175,6 +175,7 @@ def build_heat_transfer_pdf(data):
         Paragraph("3. Material Properties", styles["Section"]),
         add_table([
             ["Property", "Value"],
+            ["Material", p.get("material_name", "Custom")],
             ["Thermal conductivity, k", f"{p['k']:.5g} W/(m·K)"],
             ["Density, rho", f"{p['rho']:.5g} kg/m³"],
             ["Specific heat, cp", f"{p['cp']:.5g} J/(kg·K)"],
