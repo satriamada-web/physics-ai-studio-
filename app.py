@@ -6,11 +6,12 @@ import streamlit as st
 from physics.heat_transfer import solve_steady_state, solve_transient, stable_time_step, calculate_heat_flux
 from physics.reporting import build_heat_transfer_pdf
 from physics.materials import MATERIALS
+from physics.verification import run_verification_suite
 
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 0.8 · Studi independensi mesh dan analisis fluks panas")
+st.caption("MVP 0.9 · Verifikasi numerik, studi mesh, dan analisis fluks panas")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 DEFAULT_SETTINGS = {
@@ -210,6 +211,25 @@ with st.sidebar:
     total_time = st.number_input("Lama simulasi (detik)", 0.01, 10000.0, step=1.0, key="total_time", on_change=record_settings_change) if mode == "Transient" else None
     run = st.button("▶ Jalankan simulasi", type="primary", use_container_width=True)
 
+with st.expander("✅ Verifikasi numerik otomatis", expanded=False):
+    st.write("Jalankan tiga kasus uji dengan solusi analitik yang diketahui. Pengujian ini memeriksa implementasi numerik dasar, bukan validasi eksperimen.")
+    if st.button("Jalankan semua uji verifikasi", key="run_verification"):
+        try:
+            st.session_state["verification_results"] = run_verification_suite()
+        except Exception as exc:
+            st.session_state["verification_error"] = str(exc)
+    if st.session_state.get("verification_error"):
+        st.error("Verifikasi gagal dijalankan: " + st.session_state["verification_error"])
+    verification_results = st.session_state.get("verification_results", [])
+    if verification_results:
+        passed_count = sum(item["Status"] == "LULUS" for item in verification_results)
+        total_count = len(verification_results)
+        v1, v2 = st.columns(2)
+        v1.metric("Uji lulus", f"{passed_count}/{total_count}")
+        v2.metric("Status keseluruhan", "LULUS" if passed_count == total_count else "PERLU PERIKSA")
+        st.dataframe(verification_results, use_container_width=True, hide_index=True)
+        st.caption("Error dibandingkan dengan hasil analitik. Toleransi numerik setiap kasus: 1×10⁻⁸.")
+        
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Grid", f"{nx} × {ny}")
 c2.metric("Ukuran pelat", f"{lx:.2f} × {ly:.2f} m")
@@ -468,4 +488,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 0.8 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 0.9 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
