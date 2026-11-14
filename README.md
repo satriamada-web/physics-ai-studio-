@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 1.5
+# Physics AI Studio — MVP 1.6
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -36,6 +36,29 @@ tetrahedral/hexahedral FEM dengan konektivitas elemen. Geometri primitif pada
 Geometry Builder MVP 1.4 juga belum otomatis dipotong atau dipetakan ke grid ini.
 Tahap selanjutnya adalah menghubungkan mesh dengan solver 3D dan visualisasi medan
 temperatur hasil simulasi.
+
+## 3D Heat Transfer Solver — MVP 1.6
+
+Antarmuka kini dapat menjalankan modul `physics/heat_transfer_3d.py` menggunakan
+parameter structured mesh yang dibuat pada MVP 1.5. Pengguna dapat memilih mode
+steady-state (Jacobi) atau transient (finite difference eksplisit), mengatur
+konduktivitas, densitas, kalor jenis, sumber panas, temperatur awal, dan temperatur
+tetap pada enam sisi domain.
+
+Hasil menampilkan temperatur minimum/maksimum, status konvergensi atau langkah waktu,
+fluks panas Fourier 3D, peta temperatur pada bidang tengah Z, visualisasi volume 3D,
+serta ekspor CSV berisi koordinat, temperatur, dan komponen fluks panas. Mode transient
+menyediakan snapshot waktu dan pemeriksaan batas stabilitas eksplisit.
+
+Panel verifikasi 3D menjalankan tiga uji analitik dasar: medan seragam steady-state,
+medan seragam transient, dan Hukum Fourier pada medan temperatur linear.
+
+Batasan: solver hanya menerima domain balok Cartesian terstruktur, material homogen
+isotropik dengan properti konstan, sumber panas volumetrik seragam, dan temperatur
+Dirichlet pada enam sisi. Batas node solver UI adalah 30.000 untuk mengendalikan beban
+komputasi cloud. Belum ada konveksi, radiasi, kontak termal, geometri arbitrer,
+mesh FEM tetrahedral, atau validasi eksperimen. Uji analitik dasar bukan validasi
+eksperimen.
 
 ## Arah pengembangan multiphysics 3D
 
