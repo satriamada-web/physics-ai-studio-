@@ -987,10 +987,20 @@ with st.container(key="bottom_sheet"):
                 st.caption(st.session_state["_preset_message"])
         with model_tab:
             mode = st.selectbox("Jenis simulasi", ["Steady-state", "Transient"], key="mode", on_change=record_settings_change)
-            st.markdown("**Resolusi grid 2D**")
+            st.markdown("**Kepadatan mesh 2D**")
+            mesh_density = st.selectbox(
+                "Preset mesh", ["Coarse / Kasar", "Normal", "Fine / Halus"],
+                index=1, key="mesh_density_2d", help="Preset mengatur jumlah node awal; nilai X/Y tetap dapat disesuaikan manual."
+            )
+            mesh_defaults = {"Coarse / Kasar": 21, "Normal": 41, "Fine / Halus": 71}
+            if st.session_state.get("_mesh_density_applied") != mesh_density:
+                st.session_state["nx"] = mesh_defaults[mesh_density]
+                st.session_state["ny"] = mesh_defaults[mesh_density]
+                st.session_state["_mesh_density_applied"] = mesh_density
             nx = slider_with_stepper("Jumlah grid arah X", 11, 101, step=2, key="nx", on_change=record_settings_change)
             ny = slider_with_stepper("Jumlah grid arah Y", 11, 101, step=2, key="ny", on_change=record_settings_change)
-            st.caption(f"Grid aktif: {nx} × {ny} node.")
+            st.caption(f"Mesh {mesh_density}: {nx} × {ny} node · {(nx-1)*(ny-1):,} elemen persegi.")
+
         with material_tab:
             st.markdown("**Geometri domain**")
             geo_a, geo_b = st.columns(2)
@@ -1008,9 +1018,25 @@ with st.container(key="bottom_sheet"):
             with mat_a:
                 k = number_input_with_unit("Konduktivitas termal k (W/m·K)", 0.01, 2000.0, step=1.0, key="k", on_change=record_settings_change)
             with mat_b:
-                rho = number_input_with_unit("Massa jenis (kg/m³)", 1.0, 25000.0, step=100.0, key="rho", on_change=record_settings_change)
+                rho = number_input_with_unit("Massa jenis (kg/m³)", 0.01, 25000.0, step=100.0, key="rho", on_change=record_settings_change)
             with mat_c:
                 cp = number_input_with_unit("Kalor jenis cp (J/kg·K)", 1.0, 10000.0, step=10.0, key="cp", on_change=record_settings_change)
+            if material_name == "Custom":
+                st.markdown("**Properti material custom**")
+                custom_a, custom_b, custom_c = st.columns(3)
+                with custom_a:
+                    st.number_input("Modulus elastisitas E (Pa)", min_value=0.0, value=float(st.session_state.get("custom_E", 2.0e11)), format="%.3e", key="custom_E")
+                with custom_b:
+                    st.number_input("Viskositas dinamis μ (Pa·s)", min_value=0.0, value=float(st.session_state.get("custom_mu", 0.0)), format="%.3e", key="custom_mu")
+                with custom_c:
+                    st.number_input("Rasio Poisson ν", min_value=0.0, max_value=0.499, value=float(st.session_state.get("custom_nu", 0.30)), format="%.3f", key="custom_nu")
+            else:
+                st.caption(
+                    f"E = {material_info['E']:.3e} Pa · μ = {material_info['mu']:.3e} Pa·s · "
+                    f"ν = {material_info['nu']:.3f} · α = {material_info['alpha']:.3e} 1/K"
+                )
+            st.caption("E, μ, ν, dan α disimpan sebagai properti referensi material. Solver panas saat ini menggunakan k, ρ, dan cp.");
+
         with boundary_tab:
             st.caption("Temperatur pada keempat sisi pelat dianggap tetap (Dirichlet).")
             bc_a, bc_b = st.columns(2)
@@ -1155,7 +1181,27 @@ else:
         r2.metric("Residual RMS", f"{data['residual']['residual_rms']:.3e} K/m²")
     fig = go.Figure(go.Heatmap(z=T, x=x, y=y, colorscale="Inferno", colorbar={"title": {"text": "TEMPERATUR<br>°C", "side": "right"}, "thickness": 11, "len": 0.78, "x": 1.02, "y": 0.5, "bgcolor": "rgba(20,32,45,0.28)", "outlinewidth": 0, "tickfont": {"size": 10}},
         hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>T=%{z:.2f} °C<extra></extra>"))
-    fig.update_layout(title="Distribusi temperatur 2D · Viewport", xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)", height=680, margin={"l": 12, "r": 82, "t": 52, "b": 12})
+    # Overlay boundary-condition indicators: color-coded edges and temperature labels.
+    _bc_colors = {"left": "#38C8F2", "right": "#FFB454", "top": "#A78BFA", "bottom": "#62D5A3"}
+    _x0, _x1, _y0, _y1 = float(x[0]), float(x[-1]), float(y[0]), float(y[-1])
+    _bc_values = {"left": boundary["left"], "right": boundary["right"], "top": boundary["top"], "bottom": boundary["bottom"]}
+    for _side, _color in _bc_colors.items():
+        if _side == "left":
+            fig.add_shape(type="line", x0=_x0, x1=_x0, y0=_y0, y1=_y1, line={"color": _color, "width": 5})
+            _ax, _ay, _text = _x0, (_y0+_y1)/2, f"L {_bc_values[_side]:g}°C"
+        elif _side == "right":
+            fig.add_shape(type="line", x0=_x1, x1=_x1, y0=_y0, y1=_y1, line={"color": _color, "width": 5})
+            _ax, _ay, _text = _x1, (_y0+_y1)/2, f"R {_bc_values[_side]:g}°C"
+        elif _side == "top":
+            fig.add_shape(type="line", x0=_x0, x1=_x1, y0=_y1, y1=_y1, line={"color": _color, "width": 5})
+            _ax, _ay, _text = (_x0+_x1)/2, _y1, f"T {_bc_values[_side]:g}°C"
+        else:
+            fig.add_shape(type="line", x0=_x0, x1=_x1, y0=_y0, y1=_y0, line={"color": _color, "width": 5})
+            _ax, _ay, _text = (_x0+_x1)/2, _y0, f"B {_bc_values[_side]:g}°C"
+        fig.add_annotation(x=_ax, y=_ay, text=_text, showarrow=False, bgcolor="rgba(20,32,45,.88)", bordercolor=_color, borderwidth=1, font={"color":_color,"size":10}, xshift=0 if _side in ("top","bottom") else (28 if _side=="left" else -28), yshift=(18 if _side=="top" else -18 if _side=="bottom" else 0))
+    if abs(float(q_vol)) > 0:
+        fig.add_annotation(x=(_x0+_x1)/2, y=(_y0+_y1)/2, text=f"☀ Heat source<br>{q_vol:.3g} W/m³", showarrow=False, bgcolor="rgba(255,180,84,.88)", font={"color":"#18212B","size":11})
+    fig.update_layout(title="Distribusi temperatur 2D · Viewport + indikator boundary", xaxis_title="Posisi X (m)", yaxis_title="Posisi Y (m)", height=680, margin={"l": 12, "r": 82, "t": 52, "b": 12})
     st.plotly_chart(fig, use_container_width=True)
     with st.expander("Profil temperatur · Detail hasil", expanded=False):
         mid = len(y)//2
