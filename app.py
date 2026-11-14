@@ -12,7 +12,7 @@ from physics.verification import run_verification_suite
 st.set_page_config(page_title="Physics AI Studio", page_icon="🌡️", layout="wide")
 st.markdown("<style>.block-container{max-width:1200px;padding-top:2rem;}div[data-testid='stMetric']{background:rgba(128,128,128,.07);padding:12px;border-radius:10px;}</style>", unsafe_allow_html=True)
 st.title("Physics AI Studio")
-st.caption("MVP 1.7 · 3D Heat Transfer, selectable slices, dan temperature probe")
+st.caption("MVP 1.8 · 3D Heat Transfer, temperature probe, dan heat-flux vectors")
 st.write("Atur model, jalankan solver numerik, amati distribusi temperatur, lalu unduh laporan simulasi.")
 
 st.divider()
@@ -402,6 +402,61 @@ with st.expander("Buka solver Heat Transfer 3D", expanded=False):
                 height=560, margin={"l": 0, "r": 0, "t": 50, "b": 0},
             )
             st.plotly_chart(volume_fig3, use_container_width=True, key="heat3d_volume")
+
+            st.subheader("Vektor fluks panas 3D")
+            st.caption(
+                "Arah panah menunjukkan arah fluks panas menurut Hukum Fourier "
+                "(q = −k∇T); warna menunjukkan besar fluks dalam W/m². "
+                "Tampilan memakai sampel node agar visualisasi tidak terlalu berat."
+            )
+            stride_x3 = max(1, int(np.ceil(active_mesh["nx"] / 7)))
+            stride_y3 = max(1, int(np.ceil(active_mesh["ny"] / 7)))
+            stride_z3 = max(1, int(np.ceil(active_mesh["nz"] / 7)))
+            xs3 = active_mesh["x"][::stride_x3]
+            ys3 = active_mesh["y"][::stride_y3]
+            zs3 = active_mesh["z"][::stride_z3]
+            if xs3[-1] != active_mesh["x"][-1]:
+                xs3 = np.append(xs3, active_mesh["x"][-1])
+            if ys3[-1] != active_mesh["y"][-1]:
+                ys3 = np.append(ys3, active_mesh["y"][-1])
+            if zs3[-1] != active_mesh["z"][-1]:
+                zs3 = np.append(zs3, active_mesh["z"][-1])
+            qx_sample3 = qx3[::stride_z3, ::stride_y3, ::stride_x3]
+            qy_sample3 = qy3[::stride_z3, ::stride_y3, ::stride_x3]
+            qz_sample3 = qz3[::stride_z3, ::stride_y3, ::stride_x3]
+            qm_sample3 = qmag3[::stride_z3, ::stride_y3, ::stride_x3]
+            zgrid3, ygrid3, xgrid3 = np.meshgrid(zs3, ys3, xs3, indexing="ij")
+            flux_threshold3 = max(float(qmag3.max()) * 1e-8, 1e-14)
+            flux_mask3 = np.isfinite(qm_sample3) & (qm_sample3 > flux_threshold3)
+            if np.any(flux_mask3):
+                cone_fig3 = go.Figure(go.Cone(
+                    x=xgrid3[flux_mask3], y=ygrid3[flux_mask3], z=zgrid3[flux_mask3],
+                    u=qx_sample3[flux_mask3], v=qy_sample3[flux_mask3], w=qz_sample3[flux_mask3],
+                    customdata=qm_sample3[flux_mask3],
+                    colorscale="Viridis", cmin=0, cmax=float(qmag3.max()),
+                    colorbar={"title": "W/m²"}, showscale=True,
+                    sizemode="scaled", sizeref=0.5, anchor="tail",
+                    hovertemplate=(
+                        "x=%{x:.4g} m<br>y=%{y:.4g} m<br>z=%{z:.4g} m"
+                        "<br>|q|=%{customdata:.4g} W/m²<extra></extra>"
+                    ),
+                ))
+                cone_fig3.update_layout(
+                    title="Arah dan magnitudo fluks panas 3D",
+                    scene={
+                        "xaxis_title": "X (m)", "yaxis_title": "Y (m)",
+                        "zaxis_title": "Z (m)", "aspectmode": "data",
+                    },
+                    height=560, margin={"l": 0, "r": 0, "t": 50, "b": 0},
+                )
+                st.plotly_chart(cone_fig3, use_container_width=True, key="heat3d_flux_vectors")
+                st.caption(
+                    f"Ditampilkan {int(np.count_nonzero(flux_mask3))} vektor dari "
+                    f"{int(qm_sample3.size)} titik sampel. Nilai numerik lengkap tersedia pada CSV."
+                )
+            else:
+                st.info("Fluks panas pada seluruh titik sampel mendekati nol; tidak ada vektor yang perlu ditampilkan.")
+
             flux_csv3 = io.StringIO()
             flux_csv3.write("x_m,y_m,z_m,temperature_C,qx_W_m2,qy_W_m2,qz_W_m2,q_magnitude_W_m2\n")
             for iz, zv in enumerate(active_mesh["z"]):
@@ -967,4 +1022,4 @@ Material homogen dan isotropik dengan sifat konstan; temperatur sisi tetap. Konv
         "laporan_physics_ai_studio.md", "text/markdown", use_container_width=True)
 
 st.divider()
-st.caption("Physics AI Studio · MVP 1.7 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
+st.caption("Physics AI Studio · MVP 1.8 | Solver edukatif. Periksa asumsi dan konvergensi sebelum memakai hasil untuk keputusan rekayasa.")
