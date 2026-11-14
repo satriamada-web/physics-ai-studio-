@@ -1,4 +1,4 @@
-# Physics AI Studio — MVP 1.4
+# Physics AI Studio — MVP 1.5
 
 Aplikasi web simulasi konduksi panas 2D, dapat diakses melalui browser Android.
 Tidak membutuhkan COMSOL, Claude Code, atau komputer pribadi. Kode berada di GitHub,
@@ -18,6 +18,24 @@ segitiga ke format OBJ. Modul pembangkit geometri berada pada `physics/geometry_
 Batasan: surface mesh ini hanya untuk visualisasi dan ekspor. Ini belum menjadi mesh
 volume tetrahedral/hexahedral dan belum terhubung langsung ke solver Heat Transfer 3D.
 Solver 3D eksperimental saat ini memakai grid Cartesian terstruktur.
+
+## Structured 3D Mesh Engine — MVP 1.5
+
+Modul `physics/mesh_3d.py` membangkitkan grid Cartesian terstruktur dengan node
+berjarak seragam pada arah X, Y, dan Z. Jumlah node dan panjang domain dapat diatur
+secara independen pada setiap arah. Hasil mencakup vektor koordinat, dx/dy/dz,
+jumlah node, jumlah cell antar-node, batas domain, dan bentuk array `(nz, ny, nx)`.
+
+Antarmuka menampilkan preview 3D berbasis sampel node, sehingga tidak perlu
+merender seluruh titik untuk grid yang besar. Batas aman bawaan adalah 200.000 node.
+Grid ini cocok sebagai struktur spasial untuk metode beda hingga (FDM) dan mengikuti
+konvensi array fondasi solver panas 3D.
+
+Batasan penting: ini adalah node-centred Cartesian structured grid, bukan mesh
+tetrahedral/hexahedral FEM dengan konektivitas elemen. Geometri primitif pada
+Geometry Builder MVP 1.4 juga belum otomatis dipotong atau dipetakan ke grid ini.
+Tahap selanjutnya adalah menghubungkan mesh dengan solver 3D dan visualisasi medan
+temperatur hasil simulasi.
 
 ## Arah pengembangan multiphysics 3D
 
