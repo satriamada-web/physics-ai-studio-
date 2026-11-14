@@ -26,6 +26,7 @@ jobs:
           from physics.heat_transfer import solve_steady_state, solve_transient
           from physics.heat_transfer_3d import solve_steady_state_3d, solve_transient_3d
           from physics.mesh_3d import create_structured_mesh
+          from physics.volume_mesh_3d import create_voxel_volume_mesh
           from physics.worker import submit_job, get_job, cancel_job
 
           b2 = {"left": 25.0, "right": 25.0, "top": 25.0, "bottom": 25.0}
@@ -45,6 +46,19 @@ jobs:
           mesh = create_structured_mesh(3, 4, 5, 1.0, 2.0, 3.0)
           assert mesh["shape_zyx"] == (5, 4, 3)
 
+          cube_vertices = np.array([
+              [0,0,0], [1,0,0], [1,1,0], [0,1,0],
+              [0,0,1], [1,0,1], [1,1,1], [0,1,1],
+          ], dtype=float)
+          cube_faces = np.array([
+              [0,2,1],[0,3,2], [4,5,6],[4,6,7],
+              [0,1,5],[0,5,4], [1,2,6],[1,6,5],
+              [2,3,7],[2,7,6], [3,0,4],[3,4,7],
+          ], dtype=int)
+          volume = create_voxel_volume_mesh(cube_vertices, cube_faces, resolution=8)
+          assert volume["active_cell_count"] == 512, volume["active_cell_count"]
+          assert volume["inside_mask_zyx"].shape == (8, 8, 8)
+
           def cancellable(progress_callback=None, cancel_event=None):
               for i in range(100000):
                   if cancel_event.is_set():
@@ -63,5 +77,5 @@ jobs:
                   break
               time.sleep(0.02)
           assert job["status"] == "cancelled", job
-          print("2D/3D solver, structured mesh, and worker cancellation: PASS")
+          print("2D/3D solver, structured mesh, voxel volume mesh, and worker cancellation: PASS")
           PY
