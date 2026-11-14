@@ -45,7 +45,8 @@ physics-ai-studio/
 ├── app.py
 ├── physics/
 │   ├── __init__.py
-│   └── heat_transfer.py
+│   ├── heat_transfer.py
+│   └── transient_diagnostics.py
 ├── requirements.txt
 ├── README.md
 └── .gitignore
