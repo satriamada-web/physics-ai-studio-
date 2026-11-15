@@ -774,6 +774,38 @@ with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
                     height=560, margin={"l":0,"r":0,"t":40,"b":0},
                 )
                 st.plotly_chart(flow_view, use_container_width=True, key="potentialflow3d_vector_view")
+                from physics.streamlines_3d import trace_streamlines_3d
+                streamline_count = st.slider(
+                    "Jumlah garis aliran", min_value=4, max_value=40, value=16,
+                    step=4, key="potentialflow3d_streamline_count",
+                )
+                with st.spinner("Menelusuri lintasan udara 3D..."):
+                    streamline_paths = trace_streamlines_3d(
+                        velocity_field, active_mask,
+                        origin_xyz=flow_mesh["bounds_min_m"],
+                        spacing_xyz=(float(flow_mesh["dx"]), float(flow_mesh["dy"]), float(flow_mesh["dz"])),
+                        seed_mask_zyx=flow_mesh["inlet_mask_zyx"],
+                        seed_count=int(streamline_count), max_steps=1200,
+                    )
+                if streamline_paths:
+                    streamline_fig = go.Figure()
+                    for path_index, path_points in enumerate(streamline_paths):
+                        streamline_fig.add_trace(go.Scatter3d(
+                            x=path_points[:, 0], y=path_points[:, 1], z=path_points[:, 2],
+                            mode="lines", line={"width": 5},
+                            name=f"Lintasan {path_index + 1}",
+                            hovertemplate="x=%{x:.3f} m<br>y=%{y:.3f} m<br>z=%{z:.3f} m<extra></extra>",
+                        ))
+                    streamline_fig.update_layout(
+                        title="Streamline 3D · lintasan udara dari inlet",
+                        scene={"xaxis_title":"X (m)","yaxis_title":"Y (m)","zaxis_title":"Z (m)","aspectmode":"data"},
+                        height=560, margin={"l":0,"r":0,"t":40,"b":0},
+                        showlegend=False,
+                    )
+                    st.plotly_chart(streamline_fig, use_container_width=True, key="potentialflow3d_streamlines")
+                    st.caption(f"{len(streamline_paths)} lintasan berhasil ditelusuri dari inlet. Garis berhenti saat mencapai batas domain, obstacle, atau area berkecepatan sangat rendah.")
+                else:
+                    st.info("Belum ada lintasan yang dapat ditelusuri. Periksa arah aliran, inlet, dan hasil Potential Flow.")
                 flow_metrics = st.columns(3)
                 flow_metrics[0].metric("Iterasi", f"{potential_result['iterations']:,}")
                 flow_metrics[1].metric("Residual", f"{potential_result['residual_max']:.2e}")
