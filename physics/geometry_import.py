@@ -144,11 +144,15 @@ def inspect_surface(vertices, faces):
     }
 
 
-def import_surface_mesh(filename, file_bytes, scale_to_m=1.0):
+def import_surface_mesh(filename, file_bytes, scale_to_m=1.0, progress_callback=None, cancel_event=None):
     """Import OBJ/STL bytes and return the common geometry preview data structure.
 
     scale_to_m is the number of metres represented by one source coordinate unit.
     """
+    if cancel_event is not None and cancel_event.is_set():
+        raise RuntimeError("Import geometri dibatalkan.")
+    if progress_callback:
+        progress_callback(0, 3, None)
     if not isinstance(file_bytes, (bytes, bytearray)):
         raise ValueError("Konten file harus berupa bytes.")
     data = bytes(file_bytes)
@@ -167,9 +171,15 @@ def import_surface_mesh(filename, file_bytes, scale_to_m=1.0):
         vertices, faces = _parse_stl(data, scale)
     else:
         raise ValueError("Format belum didukung. Unggah file .OBJ atau .STL.")
+    if cancel_event is not None and cancel_event.is_set():
+        raise RuntimeError("Import geometri dibatalkan.")
+    if progress_callback:
+        progress_callback(2, 3, None)
     if len(faces) > MAX_FACES:
         raise ValueError("Jumlah face melebihi batas 250.000.")
     diagnostics = inspect_surface(vertices, faces)
+    if progress_callback:
+        progress_callback(3, 3, None)
     return {
         "shape": "Imported: " + str(filename),
         "source_filename": str(filename),
