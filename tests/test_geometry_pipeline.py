@@ -82,6 +82,21 @@ class GeometryPipelineTests(unittest.TestCase):
         self.assertTrue(domain["inlet_mask_zyx"][-1].any())
         self.assertTrue(domain["outlet_mask_zyx"][0].any())
 
+    def test_custom_inlet_does_not_heat_the_entire_upstream_wall(self):
+        mask = np.ones((4, 4, 4), dtype=bool)
+        inlet = np.zeros_like(mask)
+        inlet[1, 1, 0] = True
+        result = solve_wind_heat_transport(
+            mask, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 305.0, 295.0,
+            air_conductivity=1e-10, total_time=0.01, snapshot_count=2,
+            inlet_mask_zyx=inlet,
+        )
+        final = result["temperature"]
+        self.assertAlmostEqual(final[1, 1, 0], 305.0, places=6)
+        upstream_wall = final[:, :, 0].copy()
+        upstream_wall[1, 1] = 295.0
+        self.assertLess(float(np.max(np.abs(upstream_wall - 295.0))), 0.01)
+
     def test_wind_heat_solver_uses_imported_volume_mask(self):
         geometry = import_surface_mesh("unit_cube.obj", CUBE_OBJ)
         mesh = create_voxel_volume_mesh(
