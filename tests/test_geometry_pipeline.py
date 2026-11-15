@@ -12,6 +12,7 @@ from physics.volume_mesh_3d import create_voxel_volume_mesh
 from physics.wind_heat_3d import solve_wind_heat_transport
 from physics.domain_3d import create_enclosing_air_domain
 from physics.potential_flow_3d import solve_potential_flow_3d
+from physics.streamlines_3d import trace_streamlines_3d
 
 
 CUBE_OBJ = b"""v 0 0 0
@@ -129,6 +130,23 @@ class GeometryPipelineTests(unittest.TestCase):
         self.assertTrue(np.isfinite(velocity[mask]).all())
         self.assertAlmostEqual(float(velocity[3, 3, 3, 0]), 0.0, places=10)
         self.assertAlmostEqual(float(velocity[3, 3, 6, 0]), 0.0, places=10)
+
+    def test_streamlines_follow_uniform_positive_x_velocity(self):
+        mask = np.ones((5, 5, 9), dtype=bool)
+        velocity = np.zeros(mask.shape + (3,), dtype=float)
+        velocity[..., 0] = 1.0
+        seeds = np.zeros_like(mask)
+        seeds[2, 2, 0] = True
+        paths = trace_streamlines_3d(
+            velocity, mask, origin_xyz=(0.0, 0.0, 0.0),
+            spacing_xyz=(1.0, 1.0, 1.0), seed_mask_zyx=seeds,
+            seed_count=1, max_steps=40,
+        )
+        self.assertEqual(len(paths), 1)
+        self.assertGreaterEqual(len(paths[0]), 2)
+        self.assertTrue(np.all(np.diff(paths[0][:, 0]) > 0))
+        np.testing.assert_allclose(paths[0][:, 1], 2.0)
+        np.testing.assert_allclose(paths[0][:, 2], 2.0)
 
     def test_wind_heat_solver_accepts_spatial_potential_flow_velocity(self):
         mask = np.ones((4, 4, 6), dtype=bool)
