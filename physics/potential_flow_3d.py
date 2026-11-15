@@ -53,7 +53,7 @@ def solve_potential_flow_3d(
     reshape[axis] = mask.shape[axis]
     phi[mask & ~fixed] = np.broadcast_to(line.reshape(reshape), mask.shape)[mask & ~fixed]
 
-    inv_sq = (1.0 / spacing[2]**2, 1.0 / spacing[1]**2, 1.0 / spacing[0]**2)
+    inv_sq = (1.0 / dx**2, 1.0 / dy**2, 1.0 / dz**2)
     converged = False
     iterations = 0
     for iteration in range(1, int(max_iterations) + 1):
