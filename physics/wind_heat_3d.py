@@ -22,7 +22,7 @@ def solve_wind_heat_transport(
     air_density=1.2, air_specific_heat=1005.0, air_conductivity=0.026,
     total_time=10.0, heat_source=0.0, snapshot_count=9,
     progress_callback=None, cancel_event=None, inlet_mask_zyx=None,
-    outlet_mask_zyx=None,
+    outlet_mask_zyx=None, velocity_field_m_s=None,
 ):
     """Transient advection-diffusion of temperature in a voxelized air domain.
 
@@ -49,9 +49,23 @@ def solve_wind_heat_transport(
                          wind_speed*np.cos(el)*np.sin(az),
                          wind_speed*np.sin(el)], dtype=float)
     ux, uy, uz = velocity
+    velocity_field = None
+    if velocity_field_m_s is not None:
+        velocity_field = np.asarray(velocity_field_m_s, dtype=float)
+        if velocity_field.shape != mask.shape + (3,) or not np.isfinite(velocity_field[mask]).all():
+            raise ValueError("Medan kecepatan harus berukuran (nz, ny, nx, 3) dan finite pada domain aktif.")
+        velocity_field = velocity_field.copy()
+        velocity_field[~mask] = 0.0
+        max_local_rate = (
+            np.abs(velocity_field[..., 0]) / dx
+            + np.abs(velocity_field[..., 1]) / dy
+            + np.abs(velocity_field[..., 2]) / dz
+        )
+        adv_rate = float(np.max(max_local_rate[mask]))
+    else:
+        adv_rate = abs(ux)/dx + abs(uy)/dy + abs(uz)/dz
     alpha = air_conductivity / (air_density * air_specific_heat)
     inv = (1.0/dx, 1.0/dy, 1.0/dz)
-    adv_rate = abs(ux)/dx + abs(uy)/dy + abs(uz)/dz
     diff_rate = 2.0*alpha*(1.0/dx**2 + 1.0/dy**2 + 1.0/dz**2)
     dt_limit = min(0.45/(adv_rate + 1e-30), 0.45/(diff_rate + 1e-30))
     steps = max(1, int(np.ceil(total_time/dt_limit)))
@@ -115,6 +129,23 @@ def solve_wind_heat_transport(
             grad[idx][boundary_cells] = (inlet_temperature - T[idx][boundary_cells]) / spacing
         return grad
 
+    def derivative_local_velocity(axis, component_field, spacing):
+        # First-order upwind derivative, selected independently per voxel.
+        previous = _neighbor(T, axis, 1)
+        following = _neighbor(T, axis, -1)
+        valid_previous = np.roll(mask, 1, axis=axis)
+        valid_following = np.roll(mask, -1, axis=axis)
+        edge0 = [slice(None)] * 3; edge0[axis] = 0
+        edge1 = [slice(None)] * 3; edge1[axis] = -1
+        valid_previous[tuple(edge0)] = False
+        valid_following[tuple(edge1)] = False
+        grad = np.zeros_like(T)
+        positive = mask & (component_field >= 0) & valid_previous
+        negative = mask & (component_field < 0) & valid_following
+        grad[positive] = (T[positive] - previous[positive]) / spacing
+        grad[negative] = (following[negative] - T[negative]) / spacing
+        return grad
+
     def laplacian_axis(axis, spacing):
         plus = _neighbor(T, axis, -1)
         minus = _neighbor(T, axis, 1)
@@ -135,7 +166,17 @@ def solve_wind_heat_transport(
     times = [0.0] if snapshots else []
     for step in range(1, steps+1):
         check_cancel(cancel_event)
-        advection = -(ux*derivative(2, ux, dx) + uy*derivative(1, uy, dy) + uz*derivative(0, uz, dz))
+        if velocity_field is None:
+            advection = -(ux*derivative(2, ux, dx) + uy*derivative(1, uy, dy) + uz*derivative(0, uz, dz))
+        else:
+            u = velocity_field[..., 0]
+            v = velocity_field[..., 1]
+            w = velocity_field[..., 2]
+            advection = -(
+                u * derivative_local_velocity(2, u, dx)
+                + v * derivative_local_velocity(1, v, dy)
+                + w * derivative_local_velocity(0, w, dz)
+            )
         diffusion = alpha*(laplacian_axis(2, dx)+laplacian_axis(1, dy)+laplacian_axis(0, dz))
         T[mask] += dt*(advection[mask] + diffusion[mask] + heat_source/(air_density*air_specific_heat))
         if inlet.any():
@@ -149,10 +190,12 @@ def solve_wind_heat_transport(
         "temperature": np.where(mask, T, np.nan),
         "snapshots": snapshots, "snapshot_times": times,
         "steps": steps, "dt_actual": dt, "dt_stability_limit": dt_limit,
-        "velocity_m_s": velocity.tolist(), "wind_speed_m_s": float(wind_speed),
+        "velocity_m_s": (np.mean(velocity_field[mask], axis=0).tolist() if velocity_field is not None else velocity.tolist()),
+        "velocity_mode": ("spatial_potential_flow_field" if velocity_field is not None else "uniform_prescribed_velocity"),
+        "wind_speed_m_s": float(wind_speed),
         "wind_azimuth_deg": float(wind_azimuth_deg),
         "wind_elevation_deg": float(wind_elevation_deg),
         "inlet_cell_count": int(inlet.sum()), "outlet_cell_count": int(outlet.sum()), "active_cell_count": int(mask.sum()),
         "alpha_m2_s": float(alpha), "converged": True,
-        "model_note": "Prescribed-velocity advection-diffusion; no Navier-Stokes, pressure, turbulence, or-slip wall model.",
+        "model_note": "One-way prescribed-velocity advection-diffusion; velocity may be uniform or imported from potential flow. No Navier-Stokes, pressure, turbulence, or two-way buoyancy coupling.",
     }
