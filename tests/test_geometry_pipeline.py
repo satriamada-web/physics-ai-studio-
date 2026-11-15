@@ -10,6 +10,7 @@ import numpy as np
 from physics.geometry_import import import_surface_mesh
 from physics.volume_mesh_3d import create_voxel_volume_mesh
 from physics.wind_heat_3d import solve_wind_heat_transport
+from physics.domain_3d import create_enclosing_air_domain
 
 
 CUBE_OBJ = b"""v 0 0 0
@@ -62,6 +63,24 @@ class GeometryPipelineTests(unittest.TestCase):
         self.assertEqual(mesh["boundary_faces"].shape[1], 3)
         np.testing.assert_allclose(mesh["boundary_vertices"].min(axis=0), [0.0, 0.0, 0.0])
         np.testing.assert_allclose(mesh["boundary_vertices"].max(axis=0), [1.0, 1.0, 1.0])
+
+    def test_room_air_domain_excludes_obstacle_and_selects_openings(self):
+        obstacle = np.zeros((4, 5, 6), dtype=bool)
+        obstacle[1:3, 2:4, 2:4] = True
+        domain = create_enclosing_air_domain(obstacle, padding_cells=3, flow_axis="x", flow_sign=1)
+        self.assertEqual(domain["air_mask_zyx"].shape, (10, 11, 12))
+        self.assertFalse(np.any(domain["air_mask_zyx"] & domain["obstacle_mask_zyx"]))
+        self.assertGreater(domain["inlet_mask_zyx"].sum(), 0)
+        self.assertGreater(domain["outlet_mask_zyx"].sum(), 0)
+        self.assertFalse(np.any(domain["inlet_mask_zyx"] & domain["outlet_mask_zyx"]))
+        self.assertEqual(domain["flow_axis"], "x")
+
+    def test_room_air_domain_supports_reverse_z_flow(self):
+        obstacle = np.ones((3, 3, 3), dtype=bool)
+        domain = create_enclosing_air_domain(obstacle, padding_cells=2, flow_axis="z", flow_sign=-1)
+        self.assertEqual(domain["inlet_mask_zyx"].shape, (7, 7, 7))
+        self.assertTrue(domain["inlet_mask_zyx"][-1].any())
+        self.assertTrue(domain["outlet_mask_zyx"][0].any())
 
     def test_wind_heat_solver_uses_imported_volume_mask(self):
         geometry = import_surface_mesh("unit_cube.obj", CUBE_OBJ)
