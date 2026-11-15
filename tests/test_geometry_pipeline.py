@@ -57,6 +57,11 @@ class GeometryPipelineTests(unittest.TestCase):
         self.assertEqual(mesh["inside_mask_zyx"].ndim, 3)
         self.assertTrue(mesh["inside_mask_zyx"].any())
         self.assertGreater(mesh["volume_estimate_m3"], 0.0)
+        self.assertGreater(len(mesh["boundary_vertices"]), 0)
+        self.assertGreater(len(mesh["boundary_faces"]), 0)
+        self.assertEqual(mesh["boundary_faces"].shape[1], 3)
+        np.testing.assert_allclose(mesh["boundary_vertices"].min(axis=0), [0.0, 0.0, 0.0])
+        np.testing.assert_allclose(mesh["boundary_vertices"].max(axis=0), [1.0, 1.0, 1.0])
 
     def test_wind_heat_solver_uses_imported_volume_mask(self):
         geometry = import_surface_mesh("unit_cube.obj", CUBE_OBJ)
