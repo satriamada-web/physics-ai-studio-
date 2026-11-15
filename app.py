@@ -91,7 +91,7 @@ def render_job_monitor(job_key, result_key, title):
         st.session_state[result_key] = job["result"]
         st.session_state.pop(job_key, None)
         st.success("Pekerjaan selesai. Hasil siap ditampilkan.")
-        st.rerun()
+        st.rerun(scope="app")
     elif job["status"] == "cancelled":
         st.session_state.pop(job_key, None)
         st.warning(job["message"] or "Simulasi dibatalkan.")
@@ -423,10 +423,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.divider()
-st.header("Geometry Builder 3D · MVP 1.4")
-st.caption("Buat dan putar geometri primitif 3D. Preview ini adalah surface mesh untuk visualisasi, belum merupakan mesh volume untuk solver FEM.")
-with st.expander("Geometry Builder 3D", expanded=False):
-    from physics.geometry_3d import create_geometry
+st.header("Geometry Builder 3D · Imported Models")
+st.caption("Impor model OBJ/STL dan tampilkan langsung sebagai surface mesh 3D yang dapat diputar, diperbesar, dan diperiksa.")
+with st.expander("Geometry Builder 3D", expanded=True):
     from physics.geometry_import import import_surface_mesh
 
     st.markdown("**Import Geometry · OBJ / STL**")
@@ -442,61 +441,15 @@ with st.expander("Geometry Builder 3D", expanded=False):
             "Meter per unit file", min_value=0.000000001, max_value=1000.0,
             value=1.0, step=0.001, format="%.6f", key="geometry_import_scale"
         )
-    if st.button("Import dan periksa geometri", key="import_geometry_file", type="primary", disabled=geometry_upload is None):
+    if st.button("Import dan tampilkan model 3D", key="import_geometry_file", type="primary", disabled=geometry_upload is None):
+        st.session_state.pop("geometry_3d_result", None)
+        st.session_state.pop("volume_mesh_3d_result", None)
         st.session_state["geometry3d_job_id"] = submit_job(
             "import-surface-geometry", import_surface_mesh,
             geometry_upload.name, geometry_upload.getvalue(), float(import_scale),
         )
         st.session_state.pop("geometry_3d_error", None)
-    st.divider()
-    st.markdown("**Atau buat geometri primitif**")
-    shape_col, size_col, resolution_col = st.columns([1, 1.4, 1])
-    with shape_col:
-        geometry_shape = st.selectbox(
-            "Bentuk objek", ["Kubus", "Balok", "Silinder"], key="geometry_3d_shape"
-        )
-    dimensions = {}
-    with size_col:
-        if geometry_shape == "Kubus":
-            dimensions["sisi"] = number_input_with_unit(
-                "Panjang sisi (m)", min_value=0.001, max_value=10.0,
-                value=0.10, step=0.01, format="%.3f", key="geometry_cube_side"
-            )
-        elif geometry_shape == "Balok":
-            dimensions["panjang"] = number_input_with_unit(
-                "Panjang X (m)", min_value=0.001, max_value=10.0,
-                value=0.20, step=0.01, format="%.3f", key="geometry_block_x"
-            )
-            dimensions["lebar"] = number_input_with_unit(
-                "Lebar Y (m)", min_value=0.001, max_value=10.0,
-                value=0.12, step=0.01, format="%.3f", key="geometry_block_y"
-            )
-            dimensions["tinggi"] = number_input_with_unit(
-                "Tinggi Z (m)", min_value=0.001, max_value=10.0,
-                value=0.08, step=0.01, format="%.3f", key="geometry_block_z"
-            )
-        else:
-            dimensions["radius"] = number_input_with_unit(
-                "Radius (m)", min_value=0.001, max_value=5.0,
-                value=0.05, step=0.005, format="%.3f", key="geometry_cylinder_radius"
-            )
-            dimensions["tinggi"] = number_input_with_unit(
-                "Tinggi (m)", min_value=0.001, max_value=10.0,
-                value=0.15, step=0.01, format="%.3f", key="geometry_cylinder_height"
-            )
-    with resolution_col:
-        geometry_resolution = st.slider(
-            "Resolusi silinder", min_value=8, max_value=64,
-            value=24, step=4, key="geometry_3d_resolution"
-        )
-        st.caption("Makin tinggi resolusi, makin halus permukaan silinder.")
-    if st.button("Buat / perbarui geometri 3D", key="build_geometry_3d", type="primary"):
-        st.session_state["geometry3d_job_id"] = submit_job(
-            "geometry-surface-mesh", create_geometry,
-            geometry_shape, dimensions, geometry_resolution,
-        )
-        st.session_state.pop("geometry_3d_error", None)
-    render_job_monitor("geometry3d_job_id", "geometry_3d_result", "Pembuatan geometri 3D")
+    render_job_monitor("geometry3d_job_id", "geometry_3d_result", "Import geometri 3D")
     if st.session_state.get("geometry_3d_error"):
         st.error(st.session_state["geometry_3d_error"])
     geometry_result = st.session_state.get("geometry_3d_result")
@@ -510,15 +463,17 @@ with st.expander("Geometry Builder 3D", expanded=False):
             hovertemplate="x=%{x:.4f} m<br>y=%{y:.4f} m<br>z=%{z:.4f} m<extra></extra>",
         )])
         mesh_fig.update_layout(
-            title=f"Preview geometri: {geometry_result['shape']}",
+            title=f"3D Viewport: {geometry_result.get('source_filename', geometry_result['shape'])}",
             scene={
                 "xaxis_title": "X (m)", "yaxis_title": "Y (m)", "zaxis_title": "Z (m)",
-                "aspectmode": "data",
-                "camera": {"eye": {"x": 1.6, "y": 1.6, "z": 1.3}},
+                "aspectmode": "data", "dragmode": "orbit",
+                "camera": {"eye": {"x": 1.7, "y": 1.7, "z": 1.35}, "projection": {"type": "perspective"}},
             },
-            height=620, margin={"l": 0, "r": 0, "t": 35, "b": 0},
+            height=650, margin={"l": 0, "r": 0, "t": 42, "b": 0},
+            uirevision="geometry-imported-model",
         )
-        st.plotly_chart(mesh_fig, use_container_width=True, key="geometry_3d_preview")
+        st.plotly_chart(mesh_fig, use_container_width=True, key="geometry_3d_preview",
+                        config={"displaylogo": False, "scrollZoom": True, "responsive": True})
         m1, m2, m3 = st.columns(3)
         m1.metric("Titik vertex", geometry_result["vertex_count"])
         m2.metric("Segitiga permukaan", geometry_result["face_count"])
@@ -544,7 +499,9 @@ with st.expander("Geometry Builder 3D", expanded=False):
             file_name="physics_ai_studio_geometry.obj",
             mime="text/plain",
         )
-        st.info("Geometri ini masih berupa permukaan segitiga (surface mesh). Solver 3D saat ini memakai grid Cartesian terstruktur dan belum menerima geometri arbitrer ini secara langsung.")
+        st.success("Model berhasil diimpor dan ditampilkan sebagai surface mesh 3D. Putar dengan drag, zoom dengan pinch/scroll, dan geser kamera melalui toolbar Plotly.")
+    else:
+        st.info("Belum ada model 3D. Pilih file OBJ/STL lalu tekan Import dan tampilkan model 3D.")
 
 st.divider()
 st.header("Volume Mesh Generator · MVP 1.7")
