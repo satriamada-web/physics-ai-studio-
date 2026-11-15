@@ -732,7 +732,8 @@ with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
                 air_cp = number_input_with_unit("Kalor jenis udara (J/kg·K)", min_value=1.0, max_value=10000.0, value=1005.0, step=5.0, key="wind3d_cp")
             with air_cols[2]:
                 air_k = number_input_with_unit("Konduktivitas udara (W/m·K)", min_value=0.0001, max_value=10.0, value=0.026, step=0.001, key="wind3d_k")
-        st.caption("Simulasi temperatur MVP menggunakan kecepatan seragam yang ditentukan pengguna. Untuk melihat pengaruh bentuk ruangan dan obstacle terhadap arah aliran, jalankan pendekatan potential flow di bawah ini.")
+        st.caption("Simulasi temperatur dapat memakai angin seragam atau medan kecepatan hasil Potential Flow (kopling satu arah). Potential Flow memperhitungkan geometri ruangan dan obstacle secara aproksimasi.")
+        use_potential_flow_for_heat = False
         if domain_kind == "Room Domain":
             from physics.potential_flow_3d import solve_potential_flow_3d
             if st.button("Hitung medan aliran 3D (Potential Flow)", key="run_potential_flow_3d"):
@@ -748,6 +749,11 @@ with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
             render_job_monitor("potentialflow3d_job_id", "potential_flow_3d_result", "Medan aliran potential flow")
             potential_result = st.session_state.get("potential_flow_3d_result")
             if potential_result:
+                use_potential_flow_for_heat = st.checkbox(
+                    "Gunakan medan Potential Flow untuk perpindahan panas",
+                    value=True, key="windheat3d_use_potential_flow",
+                    help="Menggunakan medan kecepatan spasial sebagai input adveksi panas (kopling satu arah).",
+                )
                 velocity_field = np.asarray(potential_result["velocity_field_m_s"])
                 active_mask = flow_mesh["inside_mask_zyx"]
                 active_points = flow_mesh["cell_centers"]
@@ -788,6 +794,9 @@ with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
                     "inlet_mask_zyx": flow_mesh["inlet_mask_zyx"],
                     "outlet_mask_zyx": flow_mesh["outlet_mask_zyx"],
                 } if domain_kind == "Room Domain" else {}),
+                **({
+                    "velocity_field_m_s": st.session_state["potential_flow_3d_result"]["velocity_field_m_s"],
+                } if domain_kind == "Room Domain" and use_potential_flow_for_heat and st.session_state.get("potential_flow_3d_result") else {}),
             )
             st.session_state.pop("wind_heat_3d_result", None)
         render_job_monitor("windheat3d_job_id", "wind_heat_3d_result", "Simulasi aliran dan perpindahan panas")
