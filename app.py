@@ -534,16 +534,31 @@ with st.expander("Buat volume mesh dari geometri impor", expanded=False):
         volume_mesh = st.session_state.get("volume_mesh_3d_result")
         if volume_mesh:
             centers = volume_mesh["cell_centers"]
-            stride = max(1, int(np.ceil(len(centers) / 12000)))
-            shown = centers[::stride]
-            volume_fig = go.Figure(go.Scatter3d(
-                x=shown[:, 0], y=shown[:, 1], z=shown[:, 2],
-                mode="markers",
-                marker={"size": 3, "opacity": 0.72},
-                hovertemplate="x=%{x:.4g} m<br>y=%{y:.4g} m<br>z=%{z:.4g} m<extra>Cell center</extra>",
-            ))
+            boundary_vertices = volume_mesh.get("boundary_vertices")
+            boundary_faces = volume_mesh.get("boundary_faces")
+            if boundary_vertices is not None and boundary_faces is not None and len(boundary_faces):
+                volume_fig = go.Figure(go.Mesh3d(
+                    x=boundary_vertices[:, 0], y=boundary_vertices[:, 1], z=boundary_vertices[:, 2],
+                    i=boundary_faces[:, 0], j=boundary_faces[:, 1], k=boundary_faces[:, 2],
+                    color="#38C8F2", opacity=0.38, flatshading=True,
+                    hoverinfo="skip", name="Batas voxel",
+                ))
+                stride = max(1, int(np.ceil(len(centers) / 9000)))
+                shown = centers[::stride]
+                volume_fig.add_trace(go.Scatter3d(
+                    x=shown[:, 0], y=shown[:, 1], z=shown[:, 2],
+                    mode="markers", marker={"size": 2, "opacity": 0.55, "color": "#E7EDF5"},
+                    hovertemplate="Pusat sel: x=%{x:.4g} m<br>y=%{y:.4g} m<br>z=%{z:.4g} m<extra></extra>",
+                    name="Pusat sel",
+                ))
+            else:
+                volume_fig = go.Figure(go.Scatter3d(
+                    x=centers[:, 0], y=centers[:, 1], z=centers[:, 2],
+                    mode="markers", marker={"size": 3, "opacity": 0.72},
+                    name="Pusat sel",
+                ))
             volume_fig.update_layout(
-                title="Volume mesh · pusat sel hexahedral (sampel)",
+                title="Volume mesh · batas voxel dan pusat sel",
                 scene={"xaxis_title":"X (m)","yaxis_title":"Y (m)","zaxis_title":"Z (m)","aspectmode":"data"},
                 height=560, margin={"l":0,"r":0,"t":35,"b":0},
             )
@@ -554,7 +569,7 @@ with st.expander("Buat volume mesh dari geometri impor", expanded=False):
             v3.metric("Estimasi volume", f"{volume_mesh['volume_estimate_m3']:.5g} m³")
             v4.metric("Ukuran sel dx/dy/dz", f"{volume_mesh['dx']:.3g} / {volume_mesh['dy']:.3g} / {volume_mesh['dz']:.3g} m")
             st.success("Volume mesh voxel berhasil dibuat dari geometri tertutup.")
-            st.warning("Mesh ini adalah pendekatan voxel hexahedral dengan batas bertangga. Belum terhubung ke solver 3D dan tidak boleh dianggap sebagai mesh FEM conforming.")
+            st.warning("Mesh ditampilkan mengikuti permukaan voxel hasil geometri impor. Ini pendekatan hexahedral bertangga, bukan mesh FEM conforming; solver fisika tetap memiliki batasan modelnya.")
             st.download_button(
                 "Unduh pusat sel volume (CSV)",
                 "x_m,y_m,z_m\\n" + "\\n".join(
