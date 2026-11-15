@@ -11,6 +11,7 @@ from physics.geometry_import import import_surface_mesh
 from physics.volume_mesh_3d import create_voxel_volume_mesh
 from physics.wind_heat_3d import solve_wind_heat_transport
 from physics.domain_3d import create_enclosing_air_domain
+from physics.potential_flow_3d import solve_potential_flow_3d
 
 
 CUBE_OBJ = b"""v 0 0 0
@@ -96,6 +97,38 @@ class GeometryPipelineTests(unittest.TestCase):
         upstream_wall = final[:, :, 0].copy()
         upstream_wall[1, 1] = 295.0
         self.assertLess(float(np.max(np.abs(upstream_wall - 295.0))), 0.01)
+
+    def test_potential_flow_points_from_inlet_to_outlet(self):
+        mask = np.ones((5, 5, 8), dtype=bool)
+        inlet = np.zeros_like(mask)
+        outlet = np.zeros_like(mask)
+        inlet[:, :, 0] = True
+        outlet[:, :, -1] = True
+        result = solve_potential_flow_3d(
+            mask, inlet, outlet, 1.0, 1.0, 1.0, reference_speed=2.0,
+            max_iterations=3000, tolerance=1e-7,
+        )
+        velocity = result["velocity_field_m_s"]
+        self.assertTrue(np.isfinite(velocity).all())
+        self.assertGreater(float(np.mean(velocity[inlet, 0])), 0.0)
+        self.assertAlmostEqual(float(np.mean(np.linalg.norm(velocity[inlet], axis=1))), 2.0, places=5)
+        self.assertTrue(result["converged"])
+
+    def test_potential_flow_blocks_normal_velocity_at_solid_faces(self):
+        mask = np.ones((7, 7, 10), dtype=bool)
+        mask[2:5, 2:5, 4:6] = False
+        inlet = np.zeros_like(mask)
+        outlet = np.zeros_like(mask)
+        inlet[:, :, 0] = mask[:, :, 0]
+        outlet[:, :, -1] = mask[:, :, -1]
+        result = solve_potential_flow_3d(
+            mask, inlet, outlet, 1.0, 1.0, 1.0, reference_speed=1.0,
+            max_iterations=4000, tolerance=1e-6,
+        )
+        velocity = result["velocity_field_m_s"]
+        self.assertTrue(np.isfinite(velocity[mask]).all())
+        self.assertAlmostEqual(float(velocity[3, 3, 3, 0]), 0.0, places=10)
+        self.assertAlmostEqual(float(velocity[3, 3, 6, 0]), 0.0, places=10)
 
     def test_wind_heat_solver_uses_imported_volume_mask(self):
         geometry = import_surface_mesh("unit_cube.obj", CUBE_OBJ)
