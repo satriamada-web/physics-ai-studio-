@@ -29,6 +29,7 @@ jobs:
           from physics.volume_mesh_3d import create_voxel_volume_mesh
           from physics.wind_heat_3d import solve_wind_heat_transport
           from physics.room_domain_3d import create_room_domain, subtract_solid_obstacle
+          from physics.geometry_import import import_surface_mesh
           from physics.worker import submit_job, get_job, cancel_job
 
           b2 = {"left": 25.0, "right": 25.0, "top": 25.0, "bottom": 25.0}
@@ -91,6 +92,24 @@ jobs:
           assert room_with_solid["active_cell_count"] < room["active_cell_count"]
           assert room_with_solid["inside_mask_zyx"].shape == room["inside_mask_zyx"].shape
 
+          # OBJ import must accept the worker injected progress/cancellation callbacks.
+          cube_obj = "\n".join([
+              "v 0 0 0", "v 1 0 0", "v 1 1 0", "v 0 1 0",
+              "v 0 0 1", "v 1 0 1", "v 1 1 1", "v 0 1 1",
+              "f 1 3 2", "f 1 4 3", "f 5 6 7", "f 5 7 8",
+              "f 1 2 6", "f 1 6 5", "f 2 3 7", "f 2 7 6",
+              "f 3 4 8", "f 3 8 7", "f 4 1 5", "f 4 5 8",
+          ]).encode("utf-8")
+          import_job = submit_job("obj-import-smoke", import_surface_mesh, "cube.obj", cube_obj, 1.0)
+          for _ in range(100):
+              imported = get_job(import_job)
+              if imported["status"] in ("completed", "failed", "cancelled"):
+                  break
+              time.sleep(0.02)
+          assert imported["status"] == "completed", imported
+          assert imported["result"]["vertex_count"] == 8
+          assert imported["result"]["face_count"] == 12
+          assert imported["result"]["is_watertight"]
 
           def cancellable(progress_callback=None, cancel_event=None):
               for i in range(100000):
