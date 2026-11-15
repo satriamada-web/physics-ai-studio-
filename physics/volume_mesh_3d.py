@@ -25,6 +25,52 @@ def _ray_triangle_z_intersection(x, y, a, b, c, eps=1e-12):
     return float(w * a[2] + u * b[2] + v * c[2])
 
 
+def _extract_voxel_boundary(inside, lower, spacing):
+    """Build a triangulated exterior surface from exposed voxel-cell faces."""
+    nz, ny, nx = inside.shape
+    dx, dy, dz = spacing
+    # Each face is a quad expressed in integer grid-corner coordinates (x, y, z).
+    face_specs = [
+        ((-1, 0, 0), ((0,0,0),(0,1,0),(0,1,1),(0,0,1))),
+        ((1, 0, 0), ((1,0,0),(1,0,1),(1,1,1),(1,1,0))),
+        ((0,-1, 0), ((0,0,0),(0,0,1),(1,0,1),(1,0,0))),
+        ((0, 1, 0), ((0,1,0),(1,1,0),(1,1,1),(0,1,1))),
+        ((0, 0,-1), ((0,0,0),(1,0,0),(1,1,0),(0,1,0))),
+        ((0, 0, 1), ((0,0,1),(0,1,1),(1,1,1),(1,0,1))),
+    ]
+    vertex_lookup = {}
+    vertices = []
+    triangles = []
+
+    def vertex_id(grid_point):
+        key = tuple(int(v) for v in grid_point)
+        found = vertex_lookup.get(key)
+        if found is None:
+            found = len(vertices)
+            vertex_lookup[key] = found
+            vertices.append([
+                float(lower[0] + key[0] * dx),
+                float(lower[1] + key[1] * dy),
+                float(lower[2] + key[2] * dz),
+            ])
+        return found
+
+    for iz, iy, ix in np.argwhere(inside):
+        for (ox, oy, oz), corners in face_specs:
+            jx, jy, jz = ix + ox, iy + oy, iz + oz
+            if (0 <= jx < nx and 0 <= jy < ny and 0 <= jz < nz
+                    and inside[jz, jy, jx]):
+                continue
+            quad = [vertex_id((ix + cx, iy + cy, iz + cz))
+                    for cx, cy, cz in corners]
+            triangles.append((quad[0], quad[1], quad[2]))
+            triangles.append((quad[0], quad[2], quad[3]))
+
+    if not triangles:
+        return np.empty((0, 3), dtype=float), np.empty((0, 3), dtype=np.int64)
+    return np.asarray(vertices, dtype=float), np.asarray(triangles, dtype=np.int64)
+
+
 def create_voxel_volume_mesh(vertices, faces, resolution=20, max_cells=50000,
                              progress_callback=None, cancel_event=None):
     """Voxelize a closed triangle surface and return occupied hexahedral cells."""
@@ -108,6 +154,7 @@ def create_voxel_volume_mesh(vertices, faces, resolution=20, max_cells=50000,
             progress_callback(iy + 1, ny, None)
 
     iz, iy, ix = np.where(inside)
+    boundary_vertices, boundary_faces = _extract_voxel_boundary(inside, lower, (dx, dy, dz))
     if len(ix) == 0:
         raise ValueError("Tidak ditemukan sel volume di dalam geometri. Coba tingkatkan resolusi atau periksa orientasi/topologi permukaan.")
     centers = np.column_stack((x[ix], y[iy], z[iz]))
@@ -115,6 +162,8 @@ def create_voxel_volume_mesh(vertices, faces, resolution=20, max_cells=50000,
         "x": x, "y": y, "z": z,
         "inside_mask_zyx": inside,
         "cell_centers": centers,
+        "boundary_vertices": boundary_vertices,
+        "boundary_faces": boundary_faces,
         "nx": nx, "ny": ny, "nz": nz,
         "candidate_cell_count": int(total),
         "active_cell_count": int(len(centers)),
