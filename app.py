@@ -732,7 +732,49 @@ with st.expander("Atur arah angin dan jalankan simulasi", expanded=False):
                 air_cp = number_input_with_unit("Kalor jenis udara (J/kg·K)", min_value=1.0, max_value=10000.0, value=1005.0, step=5.0, key="wind3d_cp")
             with air_cols[2]:
                 air_k = number_input_with_unit("Konduktivitas udara (W/m·K)", min_value=0.0001, max_value=10.0, value=0.026, step=0.001, key="wind3d_k")
-        st.caption("Pada Room Domain, arah aliran ditentukan oleh pasangan dinding inlet → outlet. Pada Imported Geometry, arah ditentukan oleh azimut dan elevasi. Medan kecepatan masih dipaksakan seragam.")
+        st.caption("Simulasi temperatur MVP menggunakan kecepatan seragam yang ditentukan pengguna. Untuk melihat pengaruh bentuk ruangan dan obstacle terhadap arah aliran, jalankan pendekatan potential flow di bawah ini.")
+        if domain_kind == "Room Domain":
+            from physics.potential_flow_3d import solve_potential_flow_3d
+            if st.button("Hitung medan aliran 3D (Potential Flow)", key="run_potential_flow_3d"):
+                st.session_state["potentialflow3d_job_id"] = submit_job(
+                    "potential-flow-3d", solve_potential_flow_3d,
+                    flow_mesh["inside_mask_zyx"],
+                    flow_mesh["inlet_mask_zyx"],
+                    flow_mesh["outlet_mask_zyx"],
+                    float(flow_mesh["dx"]), float(flow_mesh["dy"]), float(flow_mesh["dz"]),
+                    float(wind_speed), max_iterations=2500, tolerance=1e-6,
+                )
+                st.session_state.pop("potential_flow_3d_result", None)
+            render_job_monitor("potentialflow3d_job_id", "potential_flow_3d_result", "Medan aliran potential flow")
+            potential_result = st.session_state.get("potential_flow_3d_result")
+            if potential_result:
+                velocity_field = np.asarray(potential_result["velocity_field_m_s"])
+                active_mask = flow_mesh["inside_mask_zyx"]
+                active_points = flow_mesh["cell_centers"]
+                active_vectors = velocity_field[active_mask]
+                stride_flow = max(1, int(np.ceil(len(active_points) / 1800)))
+                sample_points = active_points[::stride_flow]
+                sample_vectors = active_vectors[::stride_flow]
+                flow_view = go.Figure(go.Cone(
+                    x=sample_points[:, 0], y=sample_points[:, 1], z=sample_points[:, 2],
+                    u=sample_vectors[:, 0], v=sample_vectors[:, 1], w=sample_vectors[:, 2],
+                    sizemode="absolute", sizeref=max(float(wind_speed), 0.1) * 0.22,
+                    anchor="tail", colorscale="Blues", showscale=False,
+                    name="Vektor kecepatan",
+                ))
+                flow_view.update_layout(
+                    title="Medan kecepatan · pendekatan potential flow",
+                    scene={"xaxis_title":"X (m)","yaxis_title":"Y (m)","zaxis_title":"Z (m)","aspectmode":"data"},
+                    height=560, margin={"l":0,"r":0,"t":40,"b":0},
+                )
+                st.plotly_chart(flow_view, use_container_width=True, key="potentialflow3d_vector_view")
+                flow_metrics = st.columns(3)
+                flow_metrics[0].metric("Iterasi", f"{potential_result['iterations']:,}")
+                flow_metrics[1].metric("Residual", f"{potential_result['residual_max']:.2e}")
+                flow_metrics[2].metric("Divergensi RMS", f"{potential_result['divergence_rms_s']:.2e} s⁻¹")
+                st.caption(potential_result["model_note"])
+        else:
+            st.info("Medan potential flow saat ini tersedia pada Room Domain dengan inlet/outlet eksplisit.")
         if st.button("▶ Jalankan simulasi aliran panas", key="run_wind_heat_3d", type="primary"):
             st.session_state["windheat3d_job_id"] = submit_job(
                 "wind-heat-transport-3d", solve_wind_heat_transport,
