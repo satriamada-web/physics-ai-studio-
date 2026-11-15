@@ -95,7 +95,9 @@ def solve_wind_heat_transport(
             # At an upstream outer face, use the prescribed inlet state.
             face = [slice(None)] * 3; face[axis] = 0
             idx = tuple(face)
-            boundary_cells = mask[idx] & ~valid[idx]
+            # Only the explicitly selected inlet aperture receives inlet data.
+            # Solid walls and obstacle faces use zero normal advective gradient.
+            boundary_cells = inlet[idx] & mask[idx]
             grad[idx][boundary_cells] = (T[idx][boundary_cells] - inlet_temperature) / spacing
         else:
             nxt = _neighbor(T, axis, -1)
@@ -107,7 +109,9 @@ def solve_wind_heat_transport(
             grad[use] = (nxt[use] - T[use]) / spacing
             face = [slice(None)] * 3; face[axis] = -1
             idx = tuple(face)
-            boundary_cells = mask[idx] & ~valid[idx]
+            # Only the explicitly selected inlet aperture receives inlet data.
+            # Other boundary cells remain zero-gradient (wall/outlet treatment).
+            boundary_cells = inlet[idx] & mask[idx]
             grad[idx][boundary_cells] = (inlet_temperature - T[idx][boundary_cells]) / spacing
         return grad
 
