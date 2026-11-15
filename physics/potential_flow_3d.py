@@ -108,16 +108,16 @@ def solve_potential_flow_3d(
         -derivative(2, dx), -derivative(1, dy), -derivative(0, dz)
     ), axis=-1)
     velocity[~mask] = 0.0
+    # Enforce zero normal velocity on faces adjacent to internal solid cells.
+    for component, ax in ((0, 2), (1, 1), (2, 0)):
+        for shift in (-1, 1):
+            neighbor_mask = np.roll(mask, shift, axis=ax)
+            edge = [slice(None)] * 3
+            edge[ax] = 0 if shift == 1 else -1
+            neighbor_mask[tuple(edge)] = True  # outer boundary is not a solid obstacle
+            velocity[..., component][mask & ~neighbor_mask] = 0.0
 
-    # Scale by mean velocity component normal to the inlet boundary.
-    inlet_normal = np.zeros(3, dtype=float)
-    for physical_axis, grid_axis in enumerate((2, 1, 0)):
-        positions = np.argwhere(inlet)
-        if len(positions) > 1:
-            spread = np.ptp(positions[:, grid_axis])
-            if spread == 0:
-                inlet_normal[physical_axis] = 1.0
-                break
+    # Scale by mean speed on the selected inlet cells.
     inlet_values = velocity[inlet]
     measured = float(np.mean(np.linalg.norm(inlet_values, axis=1))) if len(inlet_values) else 0.0
     if reference_speed == 0:
