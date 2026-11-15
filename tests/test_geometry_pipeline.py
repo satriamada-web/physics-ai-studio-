@@ -130,6 +130,25 @@ class GeometryPipelineTests(unittest.TestCase):
         self.assertAlmostEqual(float(velocity[3, 3, 3, 0]), 0.0, places=10)
         self.assertAlmostEqual(float(velocity[3, 3, 6, 0]), 0.0, places=10)
 
+    def test_wind_heat_solver_accepts_spatial_potential_flow_velocity(self):
+        mask = np.ones((4, 4, 6), dtype=bool)
+        inlet = np.zeros_like(mask)
+        outlet = np.zeros_like(mask)
+        inlet[:, :, 0] = True
+        outlet[:, :, -1] = True
+        velocity = np.zeros(mask.shape + (3,), dtype=float)
+        velocity[..., 0] = 1.0
+        result = solve_wind_heat_transport(
+            mask, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 305.0, 295.0,
+            air_conductivity=1e-10, total_time=0.1, snapshot_count=2,
+            inlet_mask_zyx=inlet, outlet_mask_zyx=outlet,
+            velocity_field_m_s=velocity,
+        )
+        self.assertEqual(result["velocity_mode"], "spatial_potential_flow_field")
+        self.assertAlmostEqual(float(result["temperature"][1, 1, 0]), 305.0, places=6)
+        self.assertGreater(float(result["temperature"][1, 1, 1]), 295.0)
+        self.assertTrue(np.isfinite(result["temperature"][mask]).all())
+
     def test_wind_heat_solver_uses_imported_volume_mask(self):
         geometry = import_surface_mesh("unit_cube.obj", CUBE_OBJ)
         mesh = create_voxel_volume_mesh(
