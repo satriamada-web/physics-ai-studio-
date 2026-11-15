@@ -63,8 +63,9 @@ def _extract_voxel_boundary(inside, lower, spacing):
                 continue
             quad = [vertex_id((ix + cx, iy + cy, iz + cz))
                     for cx, cy, cz in corners]
-            triangles.append((quad[0], quad[1], quad[2]))
-            triangles.append((quad[0], quad[2], quad[3]))
+            # Reverse the quad winding so exterior normals point out of the solid.
+            triangles.append((quad[0], quad[2], quad[1]))
+            triangles.append((quad[0], quad[3], quad[2]))
 
     if not triangles:
         return np.empty((0, 3), dtype=float), np.empty((0, 3), dtype=np.int64)
